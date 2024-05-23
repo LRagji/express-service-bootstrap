@@ -1,0 +1,147 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Football",
+    "description": "Used to query standing of different teams across leagues and countries.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000/"
+    }
+  ],
+  "paths": {
+    "/v1/standings/": {
+      "get": {
+        "tags": [
+          "Types"
+        ],
+        "summary": "Retrive a setting definition for the given typeid.",
+        "description": "Returna a single type id definition.",
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "offset used for pagination, default 0",
+            "required": false,
+            "style": "form",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "limit used for pagination, default 100",
+            "required": false,
+            "style": "form",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamName",
+            "in": "query",
+            "description": "filter by team name",
+            "required": false,
+            "style": "form",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "leagueName",
+            "in": "query",
+            "description": "filter by league name",
+            "required": false,
+            "style": "form",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "countryName",
+            "in": "query",
+            "description": "filter by country name",
+            "required": false,
+            "style": "form",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successful operation and end of page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/standings"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "successful operation but there is more content use pagination limit and offset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/standings"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid typeid"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "standings": {
+        "type": "object",
+        "properties": {
+          "countryID": {
+            "type": "string",
+            "example": 44
+          },
+          "leagueID": {
+            "type": "string",
+            "example": 149
+          },
+          "teamID": {
+            "type": "string",
+            "example": 1345
+          },
+          "countryName": {
+            "type": "string",
+            "example": "England"
+          },
+          "leagueName": {
+            "type": "string",
+            "example": "Non League Premier"
+          },
+          "teamName": {
+            "type": "string",
+            "example": "Warrington Rylands"
+          },
+          "overallLeaguePosition": {
+            "type": "string",
+            "example": 2
+          }
+        }
+      }
+    }
+  }
+}

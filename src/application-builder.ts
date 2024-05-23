@@ -92,8 +92,8 @@ export class ApplicationBuilder {
     }
 
     public async start() {
-        await this.container.createInstanceWithoutConstructor<Express>('applicationExpress', this.appExpressListen);
-        await this.container.createInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen);
+        await this.container.createInstanceWithoutConstructor<Express>('applicationExpress', this.appExpressListen.bind(this));
+        await this.container.createInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
     }
 
     public async [Symbol.asyncDispose]() {
@@ -108,7 +108,7 @@ export class ApplicationBuilder {
     //------Private Methods------//
     private async appExpressListen() {
         const applicationExpressInstance = await this.container.bootstrap.createAsyncInstanceWithoutConstructor<Express>(async () => Promise.resolve(express()));
-        const applicationServer = await new Promise<Server>((a, r) => {
+        const applicationHttpServer = await new Promise<Server>((a, r) => {
             try {
                 applicationExpressInstance.use(this.helmetMiddleware);
                 applicationExpressInstance.use(this.bodyParserUrlEncodingMiddleware);
@@ -130,7 +130,10 @@ export class ApplicationBuilder {
             }
         });
         applicationExpressInstance[Symbol.asyncDispose] = async () => {
-            await (applicationServer[Symbol.asyncDispose] || (async () => applicationServer.close(e => e == null ? Promise.resolve() : Promise.reject(e))))();
+            const customDispose = async () => {
+                applicationHttpServer.close(e => e == null ? Promise.resolve() : Promise.reject(e))
+            };
+            await (applicationHttpServer[Symbol.asyncDispose]?.bind(applicationHttpServer) || customDispose)();
         };
         return applicationExpressInstance;
     }
@@ -151,7 +154,10 @@ export class ApplicationBuilder {
             }
         });
         healthExpressInstance[Symbol.asyncDispose] = async () => {
-            await (healthServer[Symbol.asyncDispose] || (async () => healthServer.close(e => e == null ? Promise.resolve() : Promise.reject(e))))();
+            const customDispose = async () => {
+                healthServer.close(e => e == null ? Promise.resolve() : Promise.reject(e))
+            };
+            await (healthServer[Symbol.asyncDispose]?.bind(healthServer) || customDispose)();
         };
         return healthExpressInstance;
     }

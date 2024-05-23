@@ -24,7 +24,7 @@ export class DisposableSingletonContainer {
 
     public async createInstanceWithoutConstructor<InstanceType>(name: string, typeConstructor: (...constructorArguments: any[]) => Promise<InstanceType>, constructorArguments?: any[], disposeSequence?: number): Promise<InstanceType> {
         if (!this.singletonContainer.has(name)) {
-            const newInstance = this.bootstrap.createAsyncInstanceWithoutConstructor<InstanceType>(typeConstructor);
+            const newInstance = await this.bootstrap.createAsyncInstanceWithoutConstructor<InstanceType>(typeConstructor);
             this.disposeSequence++;
             disposeSequence = disposeSequence || this.disposeSequence;
             const existingMembers = this.disposeSequenceMap.get(disposeSequence) || new Set<string>()
@@ -37,11 +37,11 @@ export class DisposableSingletonContainer {
 
     public async disposeInstance(name: string): Promise<void> {
         if (this.singletonContainer.has(name)) {
-            if ((this.singletonContainer.get(name) as any)[Symbol.dispose] !== null) {
+            if ((this.singletonContainer.get(name) as any)[Symbol.dispose] != null) {
                 (this.singletonContainer.get(name) as any)[Symbol.dispose]();
             }
 
-            if ((this.singletonContainer.get(name) as any)[Symbol.asyncDispose] !== null) {
+            if ((this.singletonContainer.get(name) as any)[Symbol.asyncDispose] != null) {
                 await (this.singletonContainer.get(name) as any)[Symbol.asyncDispose]();
             }
             this.singletonContainer.delete(name);

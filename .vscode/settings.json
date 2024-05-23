@@ -1,0 +1,8 @@
+{
+    "editor.formatOnSave": true,
+    "workbench.iconTheme": "vs-minimal",
+    "editor.detectIndentation": true,
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "git.mergeEditor": true
+}
