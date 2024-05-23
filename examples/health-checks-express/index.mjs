@@ -1,16 +1,15 @@
-import { ApplicationBuilder } from "../../dist/src/index.js";
-import * as OpenApiDefinition from "./api-def.json" with { type: "json" };
+import { ApplicationBuilder, K8SHealthStatus } from "../../dist/src/index.js";
 import { Router } from "express"
 import bodyParser from "body-parser";
 
 async function main() {
-    const applicationName = "Test Simple App";
+    const applicationName = "Test Health Checks App";
     const testRouter = Router()
         .get("/", (req, res) => {
             res.send("Hello World");
         });
 
-    const app = new ApplicationBuilder(applicationName, OpenApiDefinition)
+    const app = new ApplicationBuilder(applicationName)
         .registerApplicationRoutes("/", testRouter)                             //register the router for your application.
         .overrideAppPort(8080)                                                  //override the default port 8080
         .overrideHealthPort(8081)                                               //override the default health port 8081
@@ -20,6 +19,10 @@ async function main() {
             status: 500,
             body: { message: error.message }
         }));
+
+    setInterval(() => {
+        app.changeHealthStatus(Date.now() % 2 === 0 ? K8SHealthStatus.ALL_OK : K8SHealthStatus.DOWN);
+    }, 1000); // Toggle the status of health checks
 
 
     await app.start();// start the application
