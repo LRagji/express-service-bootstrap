@@ -122,7 +122,7 @@ export class ApplicationBuilder {
                 for (const [path, router] of this.appRouters) {
                     applicationExpressInstance.use(path, router);
                 }
-                applicationExpressInstance.use(this.errorHandler);
+                applicationExpressInstance.use(this.errorHandler.bind(this));
                 const server = applicationExpressInstance.listen(this.applicationPort, () => { a(server) });
             }
             catch (e) {

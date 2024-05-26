@@ -8,6 +8,9 @@ async function main() {
     const testRouter = Router()
         .get("/", (req, res) => {
             res.send("Hello World");
+        })
+        .get("/error", (req, res) => {
+            throw new Error("This is an error to validate final 'ErrorResponseTransformer' error handling of library");
         });
 
     const app = new ApplicationBuilder(applicationName, OpenApiDefinition)
