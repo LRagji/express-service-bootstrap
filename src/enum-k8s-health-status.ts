@@ -1,3 +1,6 @@
+/**
+ * Enum for K8S health status
+ */
 export enum K8SHealthStatus {
     ALL_OK = 'ALL_OK',
     DOWN = 'DOWN',

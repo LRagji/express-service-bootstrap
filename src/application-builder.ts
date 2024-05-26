@@ -13,6 +13,14 @@ declare module 'express' {
     }
 }
 
+/**
+ * The ApplicationBuilder class is responsible for building an express application.
+ * It sets up the application's health status, ports, middlewares, routers, and error handling.
+ * 
+ * @property {K8SHealthStatus} healthStatus - The health status of the application.
+ * @property {string} applicationName - The name of the application.
+ * @property {any} swaggerDocument - The swagger document for the application(JSON representation).
+ */
 export class ApplicationBuilder {
     public healthStatus = K8SHealthStatus.ALL_OK;
     private applicationPort: number = 3000;
@@ -25,6 +33,15 @@ export class ApplicationBuilder {
     private catchAllErrorResponseTransformer: (request: Request, error: unknown) => unknown;
     private readonly exitHandler = this.container.disposeAll.bind(this.container);
 
+    /**
+     * Creates an instance of ApplicationBuilder.
+     * 
+     * @param {string} applicationName - The name of the application.
+     * @param {any} swaggerDocument - The swagger document for the application(JSON representation).
+     * @param {NodeJS.Process} currentProcess - The current process.
+     * @param {NodeJS.Signals[]} exitSignals - The exit signals.
+     * @param {DisposableSingletonContainer} container - The container for disposable singletons.
+     */
     constructor(
         public applicationName: string = 'Application',
         public swaggerDocument: any = null,
@@ -47,55 +64,108 @@ export class ApplicationBuilder {
         });
     }
 
+    /**
+     *  Used to overrides the application port default(3000).
+     * @param {number} port new application port.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
     public overrideAppPort(port: number): ApplicationBuilder {
         this.applicationPort = port;
         return this;
     }
 
+    /**
+     *  Used to overrides the health port default(5678).
+     * @param {number} port new health port.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
     public overrideHealthPort(port: number): ApplicationBuilder {
         this.healthPort = port;
         return this;
     }
 
+    /**
+     * Used to overrides the helmet configuration.
+     * @param {(request: Request, response: Response, next: NextFunction) => void} helmet new helmet configured middleware.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
     public overrideHelmetConfiguration(helmet: (request: Request, response: Response, next: NextFunction) => void): ApplicationBuilder {
         this.helmetMiddleware = helmet;
         return this;
     }
 
+    /**
+     * Used to overrides the bodyParserUrlEncoding configuration.
+     * @param {(request: Request, response: Response, next: NextFunction) => void} bodyParserUrlEncoding new bodyParserUrlEncoding configured middleware.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
     public overrideBodyParserUrlEncodingConfiguration(bodyParserUrlEncoding: (request: Request, response: Response, next: NextFunction) => void): ApplicationBuilder {
         this.bodyParserUrlEncodingMiddleware = bodyParserUrlEncoding;
         return this;
     }
 
+    /**
+     * Used to overrides the bodyParserJson configuration.
+     * @param {(request: Request, response: Response, next: NextFunction) => void} bodyParserJson new bodyParserJson configured middleware.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
     public overrideBodyParserJsonConfiguration(bodyParserJson: (request: Request, response: Response, next: NextFunction) => void): ApplicationBuilder {
         this.bodyParserJsonMiddleware = bodyParserJson;
         return this;
     }
 
+    /**
+     * Used to overrides the catchAllErrorResponseTransformer configuration.
+     * @param {(request: Request, error: unknown) => unknown} transformer new catchAllErrorResponseTransformer configured middleware.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
     public overrideCatchAllErrorResponseTransformer(transformer: (request: Request, error: unknown) => unknown): ApplicationBuilder {
         this.catchAllErrorResponseTransformer = transformer;
         return this;
     }
 
+    /**
+     * Used to register a middleware.
+     * @param {(request: Request, response: Response, next: NextFunction) => Promise<void>} middleware middleware to be registered.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
     public registerApplicationMiddleware(middleware: (request: Request, response: Response, next: NextFunction) => Promise<void>): ApplicationBuilder {
         this.appMiddlewares.push(middleware);
         return this;
     }
 
+    /**
+     * Used to register a router.
+     * @param {string} path path for the router.
+     * @param {IRouter} router router to be registered.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
     public registerApplicationRoutes(path: string, router: IRouter): ApplicationBuilder {
         this.appRouters.set(path, router);
         return this;
     }
 
+    /**
+     * Used to change the health status of the application.
+     * @param {K8SHealthStatus} status new health status.
+     */
     public changeHealthStatus(status: K8SHealthStatus) {
         this.healthStatus = status;
     }
 
+    /**
+     * Used to start the application using the configured parameters.
+     * @returns {Promise<void>} Promise that resolves when the application is started.
+     */
     public async start() {
         await this.container.createInstanceWithoutConstructor<Express>('applicationExpress', this.appExpressListen.bind(this));
         await this.container.createInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
     }
 
+    /**
+     * Used to stop the application. This clears all the middlewares and routers.(all config is reset to default)
+     * @returns {Promise<void>} Promise that resolves when the application is stopped.
+     */
     public async [Symbol.asyncDispose]() {
         this.exitSignals.forEach(signal => {
             this.currentProcess.removeListener(signal, this.exitHandler);
