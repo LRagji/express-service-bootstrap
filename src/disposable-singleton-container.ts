@@ -29,7 +29,7 @@ export class DisposableSingletonContainer {
      */
     public createInstance<InstanceType>(name: string, typeConstructor: new (...constructorArguments: any[]) => InstanceType, constructorArguments?: any[], disposeSequence?: number): InstanceType {
         if (!this.singletonContainer.has(name)) {
-            const newInstance = this.bootstrap.createInstance<InstanceType>(typeConstructor);
+            const newInstance = this.bootstrap.createInstance<InstanceType>(typeConstructor, constructorArguments);
             this.disposeSequence++;
             disposeSequence = disposeSequence || this.disposeSequence;
             const existingMembers = this.disposeSequenceMap.get(disposeSequence) || new Set<string>()
@@ -50,7 +50,7 @@ export class DisposableSingletonContainer {
      */
     public async createInstanceWithoutConstructor<InstanceType>(name: string, typeConstructor: (...constructorArguments: any[]) => Promise<InstanceType>, constructorArguments?: any[], disposeSequence?: number): Promise<InstanceType> {
         if (!this.singletonContainer.has(name)) {
-            const newInstance = await this.bootstrap.createAsyncInstanceWithoutConstructor<InstanceType>(typeConstructor);
+            const newInstance = await this.bootstrap.createAsyncInstanceWithoutConstructor<InstanceType>(typeConstructor, constructorArguments);
             this.disposeSequence++;
             disposeSequence = disposeSequence || this.disposeSequence;
             const existingMembers = this.disposeSequenceMap.get(disposeSequence) || new Set<string>()

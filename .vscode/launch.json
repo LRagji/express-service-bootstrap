@@ -27,7 +27,7 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${workspaceFolder}/test/services/settings-service.test.ts",
+            "program": "${workspaceFolder}/test/disposable-singleton-container.tests.ts",
             "preLaunchTask": "npm: build",
             "outFiles": [
                 "${workspaceFolder}/dist/test/**/*.js"
