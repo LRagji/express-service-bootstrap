@@ -43,14 +43,14 @@ export class DisposableSingletonContainer {
     /**
      * Creates a new instance of a class without a constructor asynchronously or returns an existing one based on name.
      * @param {string} name The name of the instance, has to be unique across all instances.
-     * @param typeConstructor The class constructor ASYNC function.
-     * @param constructorArguments The arguments to pass to the constructor(optional)
+     * @param typeConstructorFunction The class constructor ASYNC function.
+     * @param constructorFunctionArguments The arguments to pass to the constructor(optional)
      * @param {number} disposeSequence The dispose sequence number(optional)
      * @returns The instance of the class
      */
-    public async createInstanceWithoutConstructor<InstanceType>(name: string, typeConstructor: (...constructorArguments: any[]) => Promise<InstanceType>, constructorArguments?: any[], disposeSequence?: number): Promise<InstanceType> {
+    public async createInstanceWithoutConstructor<InstanceType>(name: string, typeConstructorFunction: (...constructorArguments: any[]) => Promise<InstanceType>, constructorFunctionArguments?: any[], disposeSequence?: number): Promise<InstanceType> {
         if (!this.singletonContainer.has(name)) {
-            const newInstance = await this.bootstrap.createAsyncInstanceWithoutConstructor<InstanceType>(typeConstructor, constructorArguments);
+            const newInstance = await this.bootstrap.createAsyncInstanceWithoutConstructor<InstanceType>(typeConstructorFunction, constructorFunctionArguments);
             this.disposeSequence++;
             disposeSequence = disposeSequence || this.disposeSequence;
             const existingMembers = this.disposeSequenceMap.get(disposeSequence) || new Set<string>()

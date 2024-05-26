@@ -1,6 +1,5 @@
 import assert from 'node:assert';
 import { DisposableSingletonContainer } from '../src/disposable-singleton-container';
-import { BootstrapConstructor } from '../src/bootstrap-constructor';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import Sinon from 'sinon';
 

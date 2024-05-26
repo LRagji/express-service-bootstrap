@@ -15,21 +15,21 @@ export class BootstrapConstructor {
 
     /**
      * Creates an instance of a class without a constructor asynchronously.
-     * @param typeConstructor The class constructor ASYNC function.
-     * @param constructorArguments the arguments to pass to the constructor(optional)
+     * @param typeConstructorFunction The class constructor ASYNC function.
+     * @param constructorFunctionArguments the arguments to pass to the constructor(optional)
      * @returns The instance of the class
      */
-    public async createAsyncInstanceWithoutConstructor<InstanceType>(typeConstructor: (...constructorArguments: any[]) => Promise<InstanceType>, constructorArguments?: any[]): Promise<InstanceType> {
-        return await typeConstructor(...(constructorArguments || []));
+    public async createAsyncInstanceWithoutConstructor<InstanceType>(typeConstructorFunction: (...constructorFunctionArguments: any[]) => Promise<InstanceType>, constructorFunctionArguments?: any[]): Promise<InstanceType> {
+        return await typeConstructorFunction(...(constructorFunctionArguments || []));
     }
 
     /**
      * Creates an instance of a class without a constructor.
-     * @param typeConstructor The class constructor function.
-     * @param constructorArguments the arguments to pass to the constructor(optional)
+     * @param typeConstructorFunction The class constructor function.
+     * @param constructorFunctionArguments the arguments to pass to the constructor(optional)
      * @returns The instance of the class
      */
-    public createInstanceWithoutConstructor<InstanceType>(typeConstructor: (...constructorArguments: any[]) => InstanceType, constructorArguments?: any[]): InstanceType {
-        return typeConstructor(...(constructorArguments || []));
+    public createInstanceWithoutConstructor<InstanceType>(typeConstructorFunction: (...constructorFunctionArguments: any[]) => InstanceType, constructorFunctionArguments?: any[]): InstanceType {
+        return typeConstructorFunction(...(constructorFunctionArguments || []));
     }
 }
