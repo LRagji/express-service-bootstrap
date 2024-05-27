@@ -25,7 +25,7 @@ export class ApplicationBuilder {
     public healthStatus = K8SHealthStatus.ALL_OK;
     private applicationPort: number = 3000;
     private healthPort: number = 5678;
-    private appMiddlewares = new Array<(request: Request, response: Response, next: NextFunction) => Promise<void>>();
+    private appMiddlewares = new Array<(request: Request, response: Response, next: NextFunction) => Promise<void> | void>();
     private appRouters = new Map<string, IRouter>();
     private helmetMiddleware: (request: Request, response: Response, next: NextFunction) => void;
     private bodyParserUrlEncodingMiddleware: (request: Request, response: Response, next: NextFunction) => void;
@@ -125,11 +125,11 @@ export class ApplicationBuilder {
     }
 
     /**
-     * Used to register a middleware.
-     * @param {(request: Request, response: Response, next: NextFunction) => Promise<void>} middleware middleware to be registered.
-     * @returns {ApplicationBuilder} ApplicationBuilder instance.
-     */
-    public registerApplicationMiddleware(middleware: (request: Request, response: Response, next: NextFunction) => Promise<void>): ApplicationBuilder {
+    * Used to register a SYNC/ASYNC middleware.
+    * @param {(request: Request, response: Response, next: NextFunction) => Promise<void>|void} middleware middleware to be registered.
+    * @returns {ApplicationBuilder} ApplicationBuilder instance.
+    */
+    public registerApplicationMiddleware(middleware: (request: Request, response: Response, next: NextFunction) => Promise<void> | void): ApplicationBuilder {
         this.appMiddlewares.push(middleware);
         return this;
     }
