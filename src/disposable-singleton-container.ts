@@ -62,6 +62,18 @@ export class DisposableSingletonContainer {
     }
 
     /**
+     * Fetches an existing instance based on name.
+     * @param {string} name The name of the instance
+     * @returns The instance of the class or undefined if it does not exist
+     * @template InstanceType The type of the instance
+     * @returns {InstanceType | undefined} The instance of the class or undefined if it does not exist
+     */
+
+    public fetchInstance<InstanceType>(name: string): InstanceType | undefined {
+        return this.singletonContainer.get(name) as InstanceType;
+    }
+
+    /**
      * Disposes an existing instance based on name.
      * @param {string} name The name of the instance
      * @returns {Promise<void>} void
