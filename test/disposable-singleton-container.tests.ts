@@ -110,4 +110,21 @@ describe('DisposableSingletonContainer', () => {
         assert(container.createInstance('instance1', MyClass) !== instance1);
         assert(container.createInstance('instance2', MyClass) !== instance2);
     });
+
+    it('should fetch a existing instance of a class when it exists', () => {
+
+        const instance = container.createInstance<MyClass>('myInstance', MyClass);
+        const fetchedInstance = container.fetchInstance<MyClass>('myInstance');
+
+        assert(instance instanceof MyClass);
+        assert(fetchedInstance instanceof MyClass);
+        assert.strictEqual(fetchedInstance, instance);
+    });
+
+    it('should fetch undefined if class does not exists', () => {
+
+        const fetchedInstance = container.fetchInstance<MyClass>('myInstance');
+
+        assert.strictEqual(fetchedInstance === undefined, true);
+    });
 });
