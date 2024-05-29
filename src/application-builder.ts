@@ -1,4 +1,4 @@
-import express, { Express, IRouter, NextFunction, Request, Response } from "express";
+import express, { Express, IRouter, NextFunction, Request, Response, Router } from "express";
 import { Server } from "http";
 import helmet from 'helmet';
 import * as bodyParser from 'body-parser';
@@ -34,15 +34,15 @@ export class ApplicationBuilder {
     private bodyParserUrlEncodingMiddleware: (request: Request, response: Response, next: NextFunction) => void;
     private bodyParserJsonMiddleware: (request: Request, response: Response, next: NextFunction) => void;
     private catchAllErrorResponseTransformer: (request: Request, error: unknown) => unknown;
-    private readonly exitHandler = this.container.disposeAll.bind(this.container);
+    private readonly exitHandler = this[Symbol.asyncDispose].bind(this);
 
     /**
      * Creates an instance of ApplicationBuilder.
      * 
      * @param {string} applicationName - The name of the application.
      * @param {any} swaggerDocument - The swagger document for the application(JSON representation).
-     * @param  startupHandler - The startup handler that has to be invoked before application starts, used to indicate the application's startup status.
-     * @param  shutdownHandler - The shutdown handler that has to be invoked before application shutdowns, used to indicate the application's livelines status.
+     * @param startupHandler - The startup handler that has to be invoked before application starts, used to indicate the application's startup status.
+     * @param shutdownHandler - The shutdown handler that has to be invoked before application shutdowns, used to indicate the application's livelines status.
      * @param {IProbe} livenessProbe - The liveness probe used to indicate the application's liveness status.
      * @param {IProbe} readinessProbe - The readiness probe used to indicate the application's readiness status.
      * @param {NodeJS.Process} currentProcess - The current process.
@@ -52,10 +52,10 @@ export class ApplicationBuilder {
     constructor(
         public applicationName: string = 'Application',
         public swaggerDocument: any = null,
-        public readonly startupHandler: () => Promise<IProbeResult<ApplicationStartupStatus>> = async () => ({ status: ApplicationStartupStatus.UP, data: {} }),
-        public readonly shutdownHandler: () => Promise<IProbeResult<ApplicationShtudownStatus>> = async () => ({ status: ApplicationShtudownStatus.STOPPED, data: {} }),
-        public readonly livenessProbe: IProbe<ApplicationStatus> = new NullProble<ApplicationStatus>(ApplicationStatus.UP),
-        public readonly readinessProbe: IProbe<ApplicationStatus> = new NullProble(ApplicationStatus.UP),
+        public startupHandler: (rootRouter: IRouter, DIContainer: DisposableSingletonContainer) => Promise<IProbeResult<ApplicationStartupStatus>> = async () => ({ status: ApplicationStartupStatus.UP, data: {} }),
+        public shutdownHandler: () => Promise<IProbeResult<ApplicationShtudownStatus>> = async () => ({ status: ApplicationShtudownStatus.STOPPED, data: {} }),
+        public livenessProbe: IProbe<ApplicationStatus> = new NullProble<ApplicationStatus>(ApplicationStatus.UP),
+        public readinessProbe: IProbe<ApplicationStatus> = new NullProble(ApplicationStatus.UP),
         private readonly currentProcess: NodeJS.Process = process,
         private readonly exitSignals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'],
         private readonly container: DisposableSingletonContainer = new DisposableSingletonContainer()) {
@@ -73,6 +73,45 @@ export class ApplicationBuilder {
                 errmsg: `Unhandled exception occured, please retry your request.`
             }]
         });
+    }
+    /**
+     *  Used to override the startup handler.
+     * @param startupHandler Handler to be invoked before application starts, used to indicate the application's startup status.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
+    public overrideStartupHandler(startupHandler: () => Promise<IProbeResult<ApplicationStartupStatus>>): ApplicationBuilder {
+        this.startupHandler = startupHandler;
+        return this;
+    }
+
+    /**
+     * Used to override the shutdown handler.
+     * @param shutdownHandler Handler to be invoked before application shutdowns, used to cleanup reasources.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
+    public overrideShutdownHandler(shutdownHandler: () => Promise<IProbeResult<ApplicationShtudownStatus>>): ApplicationBuilder {
+        this.shutdownHandler = shutdownHandler;
+        return this;
+    }
+
+    /**
+     * Used to override the liveness probe.
+     * @param livenessProbe Probe used to indicate the application's liveness status.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
+    public overrideLivenessProbe(livenessProbe: IProbe<ApplicationStatus>): ApplicationBuilder {
+        this.livenessProbe = livenessProbe;
+        return this;
+    }
+
+    /**
+     * Used to override the readiness probe.
+     * @param readinessProbe Probe used to indicate the application's readiness status.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
+    public overrideReadinessProbe(readinessProbe: IProbe<ApplicationStatus>): ApplicationBuilder {
+        this.readinessProbe = readinessProbe;
+        return this;
     }
 
     /**
@@ -163,12 +202,13 @@ export class ApplicationBuilder {
     public async start() {
         const startTime = Date.now();
         this.applicationStatus = { status: ApplicationStartupStatus.STARTING, data: { "invokeTime": startTime } };
+        await this.container.createInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
         try {
-            this.applicationStatus = await this.startupHandler();
+            const rootRouter = this.container.bootstrap.createInstanceWithoutConstructor<IRouter>(Router);
+            this.applicationStatus = await this.startupHandler(rootRouter, this.container);
             if (this.applicationStatus.status === ApplicationStartupStatus.UP) {
+                this.registerApplicationRoutes("/", rootRouter);
                 await this.container.createInstanceWithoutConstructor<Express>('applicationExpress', this.appExpressListen.bind(this));
-                await this.container.createInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
-                this.applicationStatus.data["startupTime"] = Date.now() - startTime;
             }
             else {
                 this.applicationStatus = { status: ApplicationStatus.DOWN, data: { "reason": `Application startup handler returned failure status: ${this.applicationStatus.status}.` } };
@@ -266,11 +306,11 @@ export class ApplicationBuilder {
                 case "startup":
                     if (this.applicationStatus.status === ApplicationStartupStatus.UP) {
                         res.status(200)
-                            .json({ "status": this.applicationStatus.status, "checks": [{ "name": "startup", "state": this.applicationStatus.status, "data": this.applicationStatus.data }] });
+                            .json({ "status": this.applicationStatus.status, "checks": [{ "name": lifecycleStage, "state": this.applicationStatus.status, "data": this.applicationStatus.data }] });
                     }
                     else {
                         res.status(503)
-                            .json({ "status": this.applicationStatus.status, "checks": [{ "name": "startup", "state": this.applicationStatus.status, "data": this.applicationStatus.data }] });
+                            .json({ "status": this.applicationStatus.status, "checks": [{ "name": lifecycleStage, "state": this.applicationStatus.status, "data": this.applicationStatus.data }] });
                     }
                     break;
                 case "readiness":
@@ -278,16 +318,16 @@ export class ApplicationBuilder {
                         const result = await this.readinessProbe.check();
                         if (result.status === ApplicationStatus.UP) {
                             res.status(200)
-                                .json({ "status": result.status, "checks": [{ "name": "readiness", "state": result.status, "data": result.data }] });
+                                .json({ "status": result.status, "checks": [{ "name": lifecycleStage, "state": result.status, "data": result.data }] });
                         }
                         else {
                             res.status(503)
-                                .json({ "status": result.status, "checks": [{ "name": "readiness", "state": result.status, "data": result.data }] });
+                                .json({ "status": result.status, "checks": [{ "name": lifecycleStage, "state": result.status, "data": result.data }] });
                         }
                     }
                     else if (this.applicationStatus.status === ApplicationShtudownStatus.STOPPING || this.applicationStatus.status === ApplicationShtudownStatus.STOPPED) {
                         res.status(503)
-                            .json({ "status": this.applicationStatus.status, "checks": [{ "name": "readiness", "state": this.applicationStatus.status, "data": { reason: "Application received exit signal." } }] });
+                            .json({ "status": this.applicationStatus.status, "checks": [{ "name": lifecycleStage, "state": this.applicationStatus.status, "data": { reason: "Application received exit signal." } }] });
                     }
                     else {
                         throw new Error(`Unknown Application state:${this.applicationStatus.status}`);
@@ -297,11 +337,11 @@ export class ApplicationBuilder {
                     const result = await this.livenessProbe.check();
                     if (result.status === ApplicationStatus.UP) {
                         res.status(200)
-                            .json({ "status": result.status, "checks": [{ "name": "liveliness", "state": result.status, "data": result.data }] });
+                            .json({ "status": result.status, "checks": [{ "name": lifecycleStage, "state": result.status, "data": result.data }] });
                     }
                     else {
                         res.status(503)
-                            .json({ "status": result.status, "checks": [{ "name": "liveliness", "state": result.status, "data": result.data }] });
+                            .json({ "status": result.status, "checks": [{ "name": lifecycleStage, "state": result.status, "data": result.data }] });
                     }
                     break;
                 default:
@@ -310,7 +350,7 @@ export class ApplicationBuilder {
         }
         catch (err) {
             res.status(500)
-                .json({ "status": ApplicationDefaultStatus.UNKNOWN, "checks": [{ "name": "health", "state": ApplicationDefaultStatus.UNKNOWN, "data": { "reason": "Unhandelled Exception" } }] });
+                .json({ "status": ApplicationDefaultStatus.UNKNOWN, "checks": [{ "name": "global", "state": ApplicationDefaultStatus.UNKNOWN, "data": { "reason": "Unhandelled Exception" } }] });
         };
     }
 

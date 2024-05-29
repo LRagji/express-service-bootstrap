@@ -11,7 +11,7 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${workspaceFolder}/examples/simple-express/index.mjs",
+            "program": "${workspaceFolder}/examples/health-checks-express/index.mjs",
             "preLaunchTask": "npm: build",
             "outFiles": [
                 "${workspaceFolder}/dist/src/**/*.js"
