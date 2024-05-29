@@ -68,6 +68,7 @@ app.overrideStartupHandler(AppStartUp)
     .overrideAppPort(8080)
     .overrideHealthPort(8081)
     .start()
+    .then(() => console.log(`${applicationName} started successfully.`))
     .catch(console.error);
 
 

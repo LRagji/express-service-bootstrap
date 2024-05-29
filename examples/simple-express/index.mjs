@@ -35,7 +35,7 @@ app.overrideStartupHandler(AppStartUp)
         body: { message: error.message }
     }))
     .start()
-    .then(() => console.log("Application started successfully."))
+    .then(() => console.log(`${applicationName} started successfully.`))
     .catch(console.error);
 
 
