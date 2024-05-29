@@ -79,7 +79,7 @@ export class ApplicationBuilder {
      * @param startupHandler Handler to be invoked before application starts, used to indicate the application's startup status.
      * @returns {ApplicationBuilder} ApplicationBuilder instance.
      */
-    public overrideStartupHandler(startupHandler: () => Promise<IProbeResult<ApplicationStartupStatus>>): ApplicationBuilder {
+    public overrideStartupHandler(startupHandler: (rootRouter: IRouter, DIContainer: DisposableSingletonContainer) => Promise<IProbeResult<ApplicationStartupStatus>>): ApplicationBuilder {
         this.startupHandler = startupHandler;
         return this;
     }
