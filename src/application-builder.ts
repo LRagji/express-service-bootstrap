@@ -3,8 +3,11 @@ import { Server } from "http";
 import helmet from 'helmet';
 import * as bodyParser from 'body-parser';
 import * as swaggerUi from "swagger-ui-express";
-import { K8SHealthStatus } from "./enum-k8s-health-status";
+import { ApplicationDefaultStatus, ApplicationLifeCycleStatusTypes, ApplicationShtudownStatus, ApplicationStartupStatus, ApplicationStatus } from "./enum-application-life-cycle-status";
 import { DisposableSingletonContainer } from "./disposable-singleton-container";
+import { IProbe } from "./i-probe";
+import { NullProble } from "./null-probe";
+import { IProbeResult } from "./i-probe-result";
 
 //This is untill express implements Dispose pattern;
 declare module 'express' {
@@ -22,7 +25,7 @@ declare module 'express' {
  * @property {any} swaggerDocument - The swagger document for the application(JSON representation).
  */
 export class ApplicationBuilder {
-    public healthStatus = K8SHealthStatus.ALL_OK;
+    private applicationStatus: IProbeResult<ApplicationLifeCycleStatusTypes> = { status: ApplicationDefaultStatus.UNKNOWN, data: {} };
     private applicationPort: number = 3000;
     private healthPort: number = 5678;
     private appMiddlewares = new Array<(request: Request, response: Response, next: NextFunction) => Promise<void> | void>();
@@ -38,6 +41,10 @@ export class ApplicationBuilder {
      * 
      * @param {string} applicationName - The name of the application.
      * @param {any} swaggerDocument - The swagger document for the application(JSON representation).
+     * @param  startupHandler - The startup handler that has to be invoked before application starts, used to indicate the application's startup status.
+     * @param  shutdownHandler - The shutdown handler that has to be invoked before application shutdowns, used to indicate the application's livelines status.
+     * @param {IProbe} livenessProbe - The liveness probe used to indicate the application's liveness status.
+     * @param {IProbe} readinessProbe - The readiness probe used to indicate the application's readiness status.
      * @param {NodeJS.Process} currentProcess - The current process.
      * @param {NodeJS.Signals[]} exitSignals - The exit signals.
      * @param {DisposableSingletonContainer} container - The container for disposable singletons.
@@ -45,6 +52,10 @@ export class ApplicationBuilder {
     constructor(
         public applicationName: string = 'Application',
         public swaggerDocument: any = null,
+        public readonly startupHandler: () => Promise<IProbeResult<ApplicationStartupStatus>> = async () => ({ status: ApplicationStartupStatus.UP, data: {} }),
+        public readonly shutdownHandler: () => Promise<IProbeResult<ApplicationShtudownStatus>> = async () => ({ status: ApplicationShtudownStatus.STOPPED, data: {} }),
+        public readonly livenessProbe: IProbe<ApplicationStatus> = new NullProble<ApplicationStatus>(ApplicationStatus.UP),
+        public readonly readinessProbe: IProbe<ApplicationStatus> = new NullProble(ApplicationStatus.UP),
         private readonly currentProcess: NodeJS.Process = process,
         private readonly exitSignals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'],
         private readonly container: DisposableSingletonContainer = new DisposableSingletonContainer()) {
@@ -146,20 +157,30 @@ export class ApplicationBuilder {
     }
 
     /**
-     * Used to change the health status of the application.
-     * @param {K8SHealthStatus} status new health status.
-     */
-    public changeHealthStatus(status: K8SHealthStatus) {
-        this.healthStatus = status;
-    }
-
-    /**
      * Used to start the application using the configured parameters.
      * @returns {Promise<void>} Promise that resolves when the application is started.
      */
     public async start() {
-        await this.container.createInstanceWithoutConstructor<Express>('applicationExpress', this.appExpressListen.bind(this));
-        await this.container.createInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
+        const startTime = Date.now();
+        this.applicationStatus = { status: ApplicationStartupStatus.STARTING, data: { "invokeTime": startTime } };
+        try {
+            this.applicationStatus = await this.startupHandler();
+            if (this.applicationStatus.status === ApplicationStartupStatus.UP) {
+                await this.container.createInstanceWithoutConstructor<Express>('applicationExpress', this.appExpressListen.bind(this));
+                await this.container.createInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
+                this.applicationStatus.data["startupTime"] = Date.now() - startTime;
+            }
+            else {
+                this.applicationStatus = { status: ApplicationStatus.DOWN, data: { "reason": `Application startup handler returned failure status: ${this.applicationStatus.status}.` } };
+            }
+        }
+        catch (error) {
+            this.applicationStatus = { status: ApplicationStatus.DOWN, data: { "reason": "Application startup handler caught error" } };
+            throw error;
+        }
+        finally {
+            this.applicationStatus.data["startupTime"] = Date.now() - startTime;
+        }
     }
 
     /**
@@ -167,12 +188,19 @@ export class ApplicationBuilder {
      * @returns {Promise<void>} Promise that resolves when the application is stopped.
      */
     public async [Symbol.asyncDispose]() {
-        this.exitSignals.forEach(signal => {
-            this.currentProcess.removeListener(signal, this.exitHandler);
-        });
-        await this.container.disposeAll();
-        this.appMiddlewares = [];
-        this.appRouters.clear();
+        const startTime = Date.now();
+        this.applicationStatus = { status: ApplicationShtudownStatus.STOPPING, data: { "invokeTime": startTime } };
+        const result = await this.shutdownHandler();
+        if (result.status === ApplicationShtudownStatus.STOPPED) {
+            this.exitSignals.forEach(signal => {
+                this.currentProcess.removeListener(signal, this.exitHandler);
+            });
+            await this.container.disposeAll();
+            this.appMiddlewares = [];
+            this.appRouters.clear();
+            this.applicationStatus = result;
+            this.applicationStatus.data["shutdownTime"] = Date.now() - startTime;
+        }
     }
 
     //------Private Methods------//
@@ -213,9 +241,9 @@ export class ApplicationBuilder {
         const healthServer = await new Promise<Server>((a, r) => {
             try {
                 healthExpressInstance.use(this.helmetMiddleware);
-                healthExpressInstance.get(`/health/startup`, async (req, res) => this.checkHealthStatus(res, `${this.applicationName} is down(${this.healthStatus.toString()}).`));
-                healthExpressInstance.get(`/health/readiness`, async (req, res) => this.checkHealthStatus(res, `${this.applicationName} is not available(${this.healthStatus.toString()}).`));
-                healthExpressInstance.get(`/health/liveliness`, async (req, res) => this.checkHealthStatus(res, `${this.applicationName} is not ready(${this.healthStatus.toString()}).`));
+                healthExpressInstance.get(`/health/startup`, async (req, res) => this.checkHealthStatus("startup", res));
+                healthExpressInstance.get(`/health/readiness`, async (req, res) => this.checkHealthStatus("readiness", res));
+                healthExpressInstance.get(`/health/liveliness`, async (req, res) => this.checkHealthStatus("liveliness", res));
                 healthExpressInstance.use(this.errorHandler);
                 const server = healthExpressInstance.listen(this.healthPort, () => { a(server) });
             }
@@ -232,14 +260,58 @@ export class ApplicationBuilder {
         return healthExpressInstance;
     }
 
-    private checkHealthStatus(res: Response, failureMsg: string) {
-        if (this.healthStatus === K8SHealthStatus.ALL_OK) {
-            res.status(200)
-                .send(`Ok`);
-        } else {
-            res.status(503)
-                .send(failureMsg);
+    private async checkHealthStatus(lifecycleStage: string, res: Response): Promise<void> {
+        try {
+            switch (lifecycleStage) {
+                case "startup":
+                    if (this.applicationStatus.status === ApplicationStartupStatus.UP) {
+                        res.status(200)
+                            .json({ "status": this.applicationStatus.status, "checks": [{ "name": "startup", "state": this.applicationStatus.status, "data": this.applicationStatus.data }] });
+                    }
+                    else {
+                        res.status(503)
+                            .json({ "status": this.applicationStatus.status, "checks": [{ "name": "startup", "state": this.applicationStatus.status, "data": this.applicationStatus.data }] });
+                    }
+                    break;
+                case "readiness":
+                    if (this.applicationStatus.status === ApplicationStatus.UP || this.applicationStatus.status === ApplicationStatus.DOWN) {
+                        const result = await this.readinessProbe.check();
+                        if (result.status === ApplicationStatus.UP) {
+                            res.status(200)
+                                .json({ "status": result.status, "checks": [{ "name": "readiness", "state": result.status, "data": result.data }] });
+                        }
+                        else {
+                            res.status(503)
+                                .json({ "status": result.status, "checks": [{ "name": "readiness", "state": result.status, "data": result.data }] });
+                        }
+                    }
+                    else if (this.applicationStatus.status === ApplicationShtudownStatus.STOPPING || this.applicationStatus.status === ApplicationShtudownStatus.STOPPED) {
+                        res.status(503)
+                            .json({ "status": this.applicationStatus.status, "checks": [{ "name": "readiness", "state": this.applicationStatus.status, "data": { reason: "Application received exit signal." } }] });
+                    }
+                    else {
+                        throw new Error(`Unknown Application state:${this.applicationStatus.status}`);
+                    }
+                    break;
+                case "liveliness":
+                    const result = await this.livenessProbe.check();
+                    if (result.status === ApplicationStatus.UP) {
+                        res.status(200)
+                            .json({ "status": result.status, "checks": [{ "name": "liveliness", "state": result.status, "data": result.data }] });
+                    }
+                    else {
+                        res.status(503)
+                            .json({ "status": result.status, "checks": [{ "name": "liveliness", "state": result.status, "data": result.data }] });
+                    }
+                    break;
+                default:
+                    throw new Error(`Unknown life cycle stage:${lifecycleStage}`);
+            }
         }
+        catch (err) {
+            res.status(500)
+                .json({ "status": ApplicationDefaultStatus.UNKNOWN, "checks": [{ "name": "health", "state": ApplicationDefaultStatus.UNKNOWN, "data": { "reason": "Unhandelled Exception" } }] });
+        };
     }
 
     private errorHandler(err: any, req: Request, res: Response, next: NextFunction) {
