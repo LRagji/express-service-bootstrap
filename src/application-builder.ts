@@ -1,13 +1,15 @@
 import express, { Express, IRouter, NextFunction, Request, Response, Router } from "express";
 import { Server } from "http";
-import * as swaggerUi from "swagger-ui-express";
 import { ApplicationDefaultStatus, ApplicationLifeCycleStatusTypes, ApplicationShutdownStatus, ApplicationStartupStatus, ApplicationStatus } from "./enum-application-life-cycle-status";
 import { DisposableSingletonContainer } from "./disposable-singleton-container";
 import { IProbe } from "./i-probe";
 import { NullProbe } from "./null-probe";
 import { IProbeResult } from "./i-probe-result";
+import { SortedMap } from "./sorted-map";
 
 export type ApplicationBuilderMiddleware = (request: Request, response: Response, next: NextFunction) => Promise<void> | void;
+
+export type HostingPath = string | "*";
 
 export enum ApplicationTypes {
     Main,
@@ -25,18 +27,13 @@ declare module 'express' {
 /**
  * The ApplicationBuilder class is responsible for building an express application.
  * It sets up the application's health status, ports, middlewares, routers, and error handling.
- * 
- * @property {K8SHealthStatus} healthStatus - The health status of the application.
- * @property {string} applicationName - The name of the application.
- * @property {any} swaggerDocument - The swagger document for the application(JSON representation).
  */
 export class ApplicationBuilder {
     private applicationStatus: IProbeResult<ApplicationLifeCycleStatusTypes> = { status: ApplicationDefaultStatus.UNKNOWN, data: {} };
     private applicationPort: number = 3000;
     private healthPort: number = 5678;
-    private appMiddlewares = new Array<ApplicationBuilderMiddleware>();
-    private healthMiddlewares = new Array<ApplicationBuilderMiddleware>();
-    private appRouters = new Map<string, IRouter>();
+    private appHandlers = new SortedMap<ApplicationBuilderMiddleware | IRouter>();
+    private healthHandlers = new SortedMap<ApplicationBuilderMiddleware | IRouter>();
     private catchAllErrorResponseTransformer: (request: Request, error: unknown) => unknown;
     private readonly exitHandler = this[Symbol.asyncDispose].bind(this);
 
@@ -44,7 +41,6 @@ export class ApplicationBuilder {
      * Creates an instance of ApplicationBuilder.
      * 
      * @param {string} applicationName - The name of the application.
-     * @param {any} swaggerDocument - The swagger document for the application(JSON representation).
      * @param startupHandler - The startup handler that has to be invoked before application starts, used to indicate the application's startup status.
      * @param shutdownHandler - The shutdown handler that has to be invoked before application shutdowns, used to indicate the application's liveliness status.
      * @param {IProbe} livenessProbe - The liveness probe used to indicate the application's liveness status.
@@ -55,7 +51,6 @@ export class ApplicationBuilder {
      */
     constructor(
         public applicationName: string = 'Application',
-        public swaggerDocument: any = null,
         public startupHandler: (rootRouter: IRouter, DIContainer: DisposableSingletonContainer, applicationBuilder: ApplicationBuilder) => Promise<IProbeResult<ApplicationStartupStatus>> = async () => ({ status: ApplicationStartupStatus.UP, data: {} }),
         public shutdownHandler: () => Promise<IProbeResult<ApplicationShutdownStatus>> = async () => ({ status: ApplicationShutdownStatus.STOPPED, data: {} }),
         public livenessProbe: IProbe<ApplicationStatus> = new NullProbe<ApplicationStatus>(ApplicationStatus.UP),
@@ -147,35 +142,27 @@ export class ApplicationBuilder {
 
     /**
     * Used to register a SYNC/ASYNC middleware.
-    * @param {ApplicationBuilderMiddleware} middleware middleware to be registered.
+    * @param {ApplicationBuilderMiddleware} handler handler to be registered.
+    * @param {HostingPath} hostingPath path where the handler has to be registered, use "*" for global.
+    * @param {number} order order in which the handler has to be registered.
+    * @param {ApplicationTypes} appliesTo type of application to which the handler has to be registered.
     * @returns {ApplicationBuilder} ApplicationBuilder instance.
     */
-    public registerApplicationMiddleware(middleware: ApplicationBuilderMiddleware, appliesTo: ApplicationTypes = ApplicationTypes.Main): ApplicationBuilder {
+    public registerApplicationHandler(handler: ApplicationBuilderMiddleware | IRouter, hostingPath: HostingPath, order: number | undefined = undefined, appliesTo: ApplicationTypes = ApplicationTypes.Main): ApplicationBuilder {
         switch (appliesTo) {
             case ApplicationTypes.Main:
-                this.appMiddlewares.push(middleware);
+                this.appHandlers.set(hostingPath, handler, order);
                 break;
             case ApplicationTypes.Health:
-                this.healthMiddlewares.push(middleware);
+                this.healthHandlers.set(hostingPath, handler, order);
                 break;
             case ApplicationTypes.Both:
-                this.appMiddlewares.push(middleware);
-                this.healthMiddlewares.push(middleware);
+                this.appHandlers.set(hostingPath, handler, order);
+                this.healthHandlers.set(hostingPath, handler, order);
                 break;
             default:
                 throw new Error(`Unknown Application Type:${appliesTo}`);
         }
-        return this;
-    }
-
-    /**
-     * Used to register a router.
-     * @param {string} path path for the router.
-     * @param {IRouter} router router to be registered.
-     * @returns {ApplicationBuilder} ApplicationBuilder instance.
-     */
-    public registerApplicationRoutes(path: string, router: IRouter): ApplicationBuilder {
-        this.appRouters.set(path, router);
         return this;
     }
 
@@ -190,7 +177,7 @@ export class ApplicationBuilder {
             const rootRouter = this.container.bootstrap.createInstanceWithoutConstructor<IRouter>(Router);
             this.applicationStatus = await this.startupHandler(rootRouter, this.container, this);
             if (this.applicationStatus.status === ApplicationStartupStatus.UP) {
-                this.registerApplicationRoutes("/", rootRouter);
+                this.registerApplicationHandler(rootRouter, "/", 0, ApplicationTypes.Main);
                 await this.container.createInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
                 await this.container.createInstanceWithoutConstructor<Express>('applicationExpress', this.appExpressListen.bind(this));
             }
@@ -220,9 +207,8 @@ export class ApplicationBuilder {
                 this.currentProcess.removeListener(signal, this.exitHandler);
             });
             await this.container.disposeAll();
-            this.appMiddlewares = [];
-            this.healthMiddlewares = [];
-            this.appRouters.clear();
+            this.appHandlers.clear();
+            this.healthHandlers.clear();
             this.applicationStatus = result;
             this.applicationStatus.data["shutdownTime"] = Date.now() - startTime;
         }
@@ -233,14 +219,13 @@ export class ApplicationBuilder {
         const applicationExpressInstance = await this.container.bootstrap.createAsyncInstanceWithoutConstructor<Express>(async () => Promise.resolve(express()));
         const applicationHttpServer = await new Promise<Server>((a, r) => {
             try {
-                if (this.swaggerDocument != null) {
-                    applicationExpressInstance.use('/api-docs', swaggerUi.serve, swaggerUi.setup(this.swaggerDocument));
-                }
-                for (const middleware of this.appMiddlewares) {
-                    applicationExpressInstance.use(middleware);
-                }
-                for (const [path, router] of this.appRouters) {
-                    applicationExpressInstance.use(path, router);
+                for (const [path, handler] of this.appHandlers.sort()) {
+                    if (path === "*") {
+                        applicationExpressInstance.use(handler);
+                    }
+                    else {
+                        applicationExpressInstance.use(path, handler);
+                    }
                 }
                 applicationExpressInstance.use(this.errorHandler.bind(this));
                 const server = applicationExpressInstance.listen(this.applicationPort, () => { a(server) });
@@ -262,8 +247,13 @@ export class ApplicationBuilder {
         const healthExpressInstance = await this.container.bootstrap.createAsyncInstanceWithoutConstructor<Express>(async () => Promise.resolve(express()));
         const healthServer = await new Promise<Server>((a, r) => {
             try {
-                for (const middleware of this.healthMiddlewares) {
-                    healthExpressInstance.use(middleware);
+                for (const [path, handler] of this.healthHandlers.sort()) {
+                    if (path === "*") {
+                        healthExpressInstance.use(handler);
+                    }
+                    else {
+                        healthExpressInstance.use(path, handler);
+                    }
                 }
                 healthExpressInstance.get(`/health/startup`, async (req, res) => this.checkHealthStatus("startup", res));
                 healthExpressInstance.get(`/health/readiness`, async (req, res) => this.checkHealthStatus("readiness", res));

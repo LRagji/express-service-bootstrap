@@ -2,6 +2,10 @@ import bodyParser from "body-parser";
 import { BootstrapConstructor } from "./bootstrap-constructor";
 import { ApplicationBuilderMiddleware } from "./application-builder";
 import helmet, { HelmetOptions } from "helmet";
+import { Router, IRouter } from "express";
+import * as swaggerUi from "swagger-ui-express";
+
+export type ApplicationRouter = { hostingPath: string, router: IRouter };
 
 /**
  * A convenience class that provides a way to create middleware instances without the need to manually create them.
@@ -40,5 +44,11 @@ export class Convenience {
      */
     public helmetMiddleware(helmetOptions?: Readonly<HelmetOptions>) {
         return this.customConstructor.createInstanceWithoutConstructor(helmet, [helmetOptions]);
+    }
+
+    public swaggerAPIDocs(swaggerDocument: any, hostPath = '/api-docs'): ApplicationRouter {
+        const swaggerRouter = this.customConstructor.createInstanceWithoutConstructor<IRouter>(Router);
+        swaggerRouter.use(swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+        return { hostingPath: hostPath, router: swaggerRouter };
     }
 }

@@ -36,12 +36,14 @@ async function AppStartUp(rootRouter, DIContainer, application) {
         });
 
     //Configure your application.
-    application.overrideAppPort(8080)                                                                //override the default port 8080
-        .overrideHealthPort(8081)                                                                    //override the default health port 8081
-        .registerApplicationMiddleware(utilities.helmetMiddleware(), ApplicationTypes.Both)            //register helmet middleware for both application and health
-        .registerApplicationMiddleware(utilities.bodyParserURLEncodingMiddleware())                  //register body parser url middleware for application
-        .registerApplicationMiddleware(utilities.bodyParserJSONEncodingMiddleware({ limit: '50M' })) //register body parser json middleware for application
-        .overrideCatchAllErrorResponseTransformer((req, error) => ({                                 //override the default catch all error response transformer
+    const apiDocs = utilities.swaggerAPIDocs(OpenApiDefinition);
+    application.overrideAppPort(8080)                                                                                            //override the default port 8080(Default 3000)
+        .overrideHealthPort(8081)                                                                                                //override the default health port 8081(Default 5678)
+        .registerApplicationHandler(utilities.helmetMiddleware(), "*", 0, ApplicationTypes.Both)                                 //register helmet middleware for both application and health
+        .registerApplicationHandler(utilities.bodyParserURLEncodingMiddleware(), "*", 1, ApplicationTypes.Main)                  //register body parser url middleware for application
+        .registerApplicationHandler(utilities.bodyParserJSONEncodingMiddleware({ limit: '50M' }), "*", 2, ApplicationTypes.Main) //register body parser json middleware for application
+        .registerApplicationHandler(apiDocs.router, apiDocs.hostingPath, 3, ApplicationTypes.Main)                               //register api docs
+        .overrideCatchAllErrorResponseTransformer((req, error) => ({                                                             //override the default catch all error response transformer
             path: req.path,
             status: 500,
             body: { message: error.message }
@@ -58,6 +60,14 @@ app.overrideStartupHandler(AppStartUp)
     .start()
     .then(() => console.log(`${applicationName} started successfully.`))
     .catch(console.error);
+
+
+//*******************************
+// You can wait for your application to be called by process exit signal
+// OR
+// If you are done call the Dispose method to stop the application
+// await app[Symbol.asyncDispose](); //stop the application and release all resources
+//*******************************
 ```
 
 ## Built with
