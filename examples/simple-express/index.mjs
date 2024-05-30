@@ -20,7 +20,7 @@ async function AppStartUp(rootRouter, DIContainer) {
         });
 
     return {
-        status: ApplicationStartupStatus.UP,            // Indicates startup was sucessful
+        status: ApplicationStartupStatus.UP,            // Indicates startup was successful
         data: { message: "Connected to database" }      // Additional data to be returned(Optional)
     };
 }

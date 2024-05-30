@@ -4,10 +4,10 @@ This is a convenience package for starting a express based API server with
 
 1. General API Security - (helmet based)
 2. Health checks - K8S Health Probes
-3. Process exits listners - Your API server should shutdown as gracefully as possible when it receives any shutdown signals from OS.
+3. Process exits listeners - Your API server should shutdown as gracefully as possible when it receives any shutdown signals from OS.
 4. Include your API documentation - Swagger UI express.
-5. Singleton DI container - possibly the best pattern to follow, yet completely flexible and ignoreable.
-6. Creator pattern - dont use new keyword, this helps in writting better unit tests and mockable classes and features.
+5. Singleton DI container - possibly the best pattern to follow, yet completely flexible and ignorable.
+6. Creator pattern - don't use new keyword, this helps in writing better unit tests and mockable classes and features.
 
 ## Getting Started
 
@@ -36,7 +36,7 @@ async function AppStartUp(rootRouter, DIContainer) {
         });
 
     return {
-        status: ApplicationStartupStatus.UP,            // Indicates startup was sucessful
+        status: ApplicationStartupStatus.UP,            // Indicates startup was successful
         data: { message: "Connected to database" }      // Additional data to be returned(Optional)
     };
 }
@@ -77,4 +77,4 @@ main().catch(console.error);
 
 ## License
 
-This project is contrubution to public domain and completely free for use, view [LICENSE.md](/license.md) file for details.
+This project is contribution to public domain and completely free for use, view [LICENSE.md](/license.md) file for details.

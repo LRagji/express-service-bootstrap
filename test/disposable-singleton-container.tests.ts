@@ -4,10 +4,10 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import Sinon from 'sinon';
 
 class MyClass {
-    constructorCountter = 0;
+    constructorCounter = 0;
     constructor(initialValue: number = 0) {
-        this.constructorCountter = initialValue;
-        this.constructorCountter++;
+        this.constructorCounter = initialValue;
+        this.constructorCounter++;
     }
     [Symbol.dispose]() { };
     [Symbol.asyncDispose]() { };
@@ -29,7 +29,7 @@ describe('DisposableSingletonContainer', () => {
         const instance = container.createInstance<MyClass>('myInstance', MyClass);
 
         assert(instance instanceof MyClass);
-        assert.strictEqual(instance.constructorCountter, 1);
+        assert.strictEqual(instance.constructorCounter, 1);
     });
 
     it('should create a new instance of a class with a passed parameters', () => {
@@ -37,7 +37,7 @@ describe('DisposableSingletonContainer', () => {
         const instance = container.createInstance<MyClass>('myInstance', MyClass, [15]);
 
         assert(instance instanceof MyClass);
-        assert.strictEqual(instance.constructorCountter, 16);
+        assert.strictEqual(instance.constructorCounter, 16);
     });
 
     it('should return an existing instance of a class with a constructor', () => {
@@ -46,7 +46,7 @@ describe('DisposableSingletonContainer', () => {
         const instance2 = container.createInstance<MyClass>('myInstance', MyClass);
 
         assert.strictEqual(instance1, instance2);
-        assert.strictEqual(instance1.constructorCountter, 1);
+        assert.strictEqual(instance1.constructorCounter, 1);
     });
 
     it('should create a new instance of a class without a constructor asynchronously', async () => {
@@ -54,7 +54,7 @@ describe('DisposableSingletonContainer', () => {
         const instance = await container.createInstanceWithoutConstructor<MyClass>('myInstance', async () => new MyClass());
 
         assert(instance instanceof MyClass);
-        assert.strictEqual(instance.constructorCountter, 1);
+        assert.strictEqual(instance.constructorCounter, 1);
     });
 
     it('should create a new instance of a class without a constructor asynchronously with a passed parameters', async () => {
@@ -62,7 +62,7 @@ describe('DisposableSingletonContainer', () => {
         const instance = await container.createInstanceWithoutConstructor<MyClass>('myInstance', async (x: number) => new MyClass(x), [100]);
 
         assert(instance instanceof MyClass);
-        assert.strictEqual(instance.constructorCountter, 101);
+        assert.strictEqual(instance.constructorCounter, 101);
     });
 
     it('should return an existing instance of a class without a constructor asynchronously', async () => {
@@ -71,7 +71,7 @@ describe('DisposableSingletonContainer', () => {
         const instance2 = await container.createInstanceWithoutConstructor<MyClass>('myInstance', async () => new MyClass());
 
         assert.strictEqual(instance1, instance2);
-        assert.strictEqual(instance1.constructorCountter, 1);
+        assert.strictEqual(instance1.constructorCounter, 1);
     });
 
     it('should dispose an existing instance by calling sync and async dispose methods', async () => {

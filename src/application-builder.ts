@@ -86,7 +86,7 @@ export class ApplicationBuilder {
 
     /**
      * Used to override the shutdown handler.
-     * @param shutdownHandler Handler to be invoked before application shutdowns, used to cleanup reasources.
+     * @param shutdownHandler Handler to be invoked before application shutdowns, used to cleanup resources.
      * @returns {ApplicationBuilder} ApplicationBuilder instance.
      */
     public overrideShutdownHandler(shutdownHandler: () => Promise<IProbeResult<ApplicationShutdownStatus>>): ApplicationBuilder {
@@ -350,7 +350,7 @@ export class ApplicationBuilder {
         }
         catch (err) {
             res.status(500)
-                .json({ "status": ApplicationDefaultStatus.UNKNOWN, "checks": [{ "name": "global", "state": ApplicationDefaultStatus.UNKNOWN, "data": { "reason": "Unhandelled Exception" } }] });
+                .json({ "status": ApplicationDefaultStatus.UNKNOWN, "checks": [{ "name": "global", "state": ApplicationDefaultStatus.UNKNOWN, "data": { "reason": "Unhandled Exception" } }] });
         };
     }
 

@@ -1,4 +1,4 @@
-import { ApplicationBuilder, ApplicationShtudownStatus, ApplicationStartupStatus, ApplicationStatus } from "../../dist/src/index.js";
+import { ApplicationBuilder, ApplicationShutdownStatus, ApplicationStartupStatus, ApplicationStatus } from "../../dist/src/index.js";
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const applicationName = "Test Health Checks App";
 const app = new ApplicationBuilder(applicationName);
@@ -17,7 +17,7 @@ async function AppStartUp(rootRouter, DIContainer) {
 
     console.log("Application started successfully.");
     return {
-        status: ApplicationStartupStatus.UP,            // Indicates startup was sucessful
+        status: ApplicationStartupStatus.UP,            // Indicates startup was successful
         data: { message: "Connected to database" }      // Additional data to be returned(Optional)
     };
 }
@@ -30,7 +30,7 @@ async function AppShutdown() {
 
     console.log("Application shutdown called.");
     return {
-        status: ApplicationShtudownStatus.STOPPED,       // Indicates shutdown was sucessful
+        status: ApplicationShutdownStatus.STOPPED,       // Indicates shutdown was successful
         data: { message: "Disconnected from database" }  // Additional data to be returned(Optional)
     };
 }
@@ -50,7 +50,7 @@ async function Health_Live() {
 
 async function Health_Ready() {
     // This is am i ready to server requests check
-    // Test for dependncies etc like connectivity to DB and immediate dependncies(not services)
+    // Test for dependencies etc like connectivity to DB and immediate dependencies(not services)
 
     await delay(1000);                                   // simulate a check that takes some time
 
