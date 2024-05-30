@@ -1,11 +1,11 @@
-import { ApplicationBuilder, ApplicationStartupStatus } from "../../dist/src/index.js";
+import { ApplicationBuilder, ApplicationStartupStatus, ApplicationTypes, Convenience } from "../../dist/src/index.js";
 import * as OpenApiDefinition from "./api-def.json" with { type: "json" };
-import bodyParser from "body-parser";
 
 const applicationName = "Test Simple App";
 const app = new ApplicationBuilder(applicationName, OpenApiDefinition);
+const utilities = new Convenience();
 
-async function AppStartUp(rootRouter, DIContainer) {
+async function AppStartUp(rootRouter, DIContainer, application) {
 
     //Connect to DB or create DB Pool
     //Apply Migrations
@@ -19,6 +19,19 @@ async function AppStartUp(rootRouter, DIContainer) {
             throw new Error("This is an error to validate final 'ErrorResponseTransformer' error handling of library");
         });
 
+    //Configure your application.
+    application.overrideAppPort(8080)                                                                //override the default port 8080
+        .overrideHealthPort(8081)                                                                    //override the default health port 8081
+        .registerApplicationMiddleware(utilities.helmetMiddleware(), ApplicationTypes.Both)            //register helmet middleware for both application and health
+        .registerApplicationMiddleware(utilities.bodyParserURLEncodingMiddleware())                  //register body parser url middleware for application
+        .registerApplicationMiddleware(utilities.bodyParserJSONEncodingMiddleware({ limit: '50M' })) //register body parser json middleware for application
+        .overrideCatchAllErrorResponseTransformer((req, error) => ({                                 //override the default catch all error response transformer
+            path: req.path,
+            status: 500,
+            body: { message: error.message }
+        }))
+
+
     return {
         status: ApplicationStartupStatus.UP,            // Indicates startup was successful
         data: { message: "Connected to database" }      // Additional data to be returned(Optional)
@@ -26,14 +39,6 @@ async function AppStartUp(rootRouter, DIContainer) {
 }
 
 app.overrideStartupHandler(AppStartUp)
-    .overrideAppPort(8080)                                                  //override the default port 8080
-    .overrideHealthPort(8081)                                               //override the default health port 8081
-    .overrideBodyParserJsonConfiguration(bodyParser.json({ limit: '50M' })) //override the default body parser configuration
-    .overrideCatchAllErrorResponseTransformer((req, error) => ({            //override the default catch all error response transformer
-        path: req.path,
-        status: 500,
-        body: { message: error.message }
-    }))
     .start()
     .then(() => console.log(`${applicationName} started successfully.`))
     .catch(console.error);

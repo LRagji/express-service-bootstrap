@@ -3,7 +3,7 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const applicationName = "Test Health Checks App";
 const app = new ApplicationBuilder(applicationName);
 
-async function AppStartUp(rootRouter, DIContainer) {
+async function AppStartUp(rootRouter, DIContainer, application) {
 
     //Connect to DB or create DB Pool
     //Apply Migrations

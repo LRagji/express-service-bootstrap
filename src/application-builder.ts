@@ -1,13 +1,19 @@
 import express, { Express, IRouter, NextFunction, Request, Response, Router } from "express";
 import { Server } from "http";
-import helmet from 'helmet';
-import * as bodyParser from 'body-parser';
 import * as swaggerUi from "swagger-ui-express";
 import { ApplicationDefaultStatus, ApplicationLifeCycleStatusTypes, ApplicationShutdownStatus, ApplicationStartupStatus, ApplicationStatus } from "./enum-application-life-cycle-status";
 import { DisposableSingletonContainer } from "./disposable-singleton-container";
 import { IProbe } from "./i-probe";
 import { NullProbe } from "./null-probe";
 import { IProbeResult } from "./i-probe-result";
+
+export type ApplicationBuilderMiddleware = (request: Request, response: Response, next: NextFunction) => Promise<void> | void;
+
+export enum ApplicationTypes {
+    Main,
+    Health,
+    Both
+}
 
 //This is until express implements Dispose pattern;
 declare module 'express' {
@@ -28,11 +34,9 @@ export class ApplicationBuilder {
     private applicationStatus: IProbeResult<ApplicationLifeCycleStatusTypes> = { status: ApplicationDefaultStatus.UNKNOWN, data: {} };
     private applicationPort: number = 3000;
     private healthPort: number = 5678;
-    private appMiddlewares = new Array<(request: Request, response: Response, next: NextFunction) => Promise<void> | void>();
+    private appMiddlewares = new Array<ApplicationBuilderMiddleware>();
+    private healthMiddlewares = new Array<ApplicationBuilderMiddleware>();
     private appRouters = new Map<string, IRouter>();
-    private helmetMiddleware: (request: Request, response: Response, next: NextFunction) => void;
-    private bodyParserUrlEncodingMiddleware: (request: Request, response: Response, next: NextFunction) => void;
-    private bodyParserJsonMiddleware: (request: Request, response: Response, next: NextFunction) => void;
     private catchAllErrorResponseTransformer: (request: Request, error: unknown) => unknown;
     private readonly exitHandler = this[Symbol.asyncDispose].bind(this);
 
@@ -42,7 +46,7 @@ export class ApplicationBuilder {
      * @param {string} applicationName - The name of the application.
      * @param {any} swaggerDocument - The swagger document for the application(JSON representation).
      * @param startupHandler - The startup handler that has to be invoked before application starts, used to indicate the application's startup status.
-     * @param shutdownHandler - The shutdown handler that has to be invoked before application shutdowns, used to indicate the application's livelines status.
+     * @param shutdownHandler - The shutdown handler that has to be invoked before application shutdowns, used to indicate the application's liveliness status.
      * @param {IProbe} livenessProbe - The liveness probe used to indicate the application's liveness status.
      * @param {IProbe} readinessProbe - The readiness probe used to indicate the application's readiness status.
      * @param {NodeJS.Process} currentProcess - The current process.
@@ -52,7 +56,7 @@ export class ApplicationBuilder {
     constructor(
         public applicationName: string = 'Application',
         public swaggerDocument: any = null,
-        public startupHandler: (rootRouter: IRouter, DIContainer: DisposableSingletonContainer) => Promise<IProbeResult<ApplicationStartupStatus>> = async () => ({ status: ApplicationStartupStatus.UP, data: {} }),
+        public startupHandler: (rootRouter: IRouter, DIContainer: DisposableSingletonContainer, applicationBuilder: ApplicationBuilder) => Promise<IProbeResult<ApplicationStartupStatus>> = async () => ({ status: ApplicationStartupStatus.UP, data: {} }),
         public shutdownHandler: () => Promise<IProbeResult<ApplicationShutdownStatus>> = async () => ({ status: ApplicationShutdownStatus.STOPPED, data: {} }),
         public livenessProbe: IProbe<ApplicationStatus> = new NullProbe<ApplicationStatus>(ApplicationStatus.UP),
         public readinessProbe: IProbe<ApplicationStatus> = new NullProbe(ApplicationStatus.UP),
@@ -63,9 +67,6 @@ export class ApplicationBuilder {
             this.currentProcess.once(signal, this.exitHandler);
         });
 
-        this.helmetMiddleware = this.container.bootstrap.createInstanceWithoutConstructor(helmet);
-        this.bodyParserJsonMiddleware = this.container.bootstrap.createInstanceWithoutConstructor(bodyParser.json, [{ limit: '1mb' }]);
-        this.bodyParserUrlEncodingMiddleware = this.container.bootstrap.createInstanceWithoutConstructor(bodyParser.urlencoded, [{ extended: true }]);
         this.catchAllErrorResponseTransformer = (req: Request, error: unknown) => ({
             apistatus: 500,
             err: [{
@@ -79,7 +80,7 @@ export class ApplicationBuilder {
      * @param startupHandler Handler to be invoked before application starts, used to indicate the application's startup status.
      * @returns {ApplicationBuilder} ApplicationBuilder instance.
      */
-    public overrideStartupHandler(startupHandler: (rootRouter: IRouter, DIContainer: DisposableSingletonContainer) => Promise<IProbeResult<ApplicationStartupStatus>>): ApplicationBuilder {
+    public overrideStartupHandler(startupHandler: (rootRouter: IRouter, DIContainer: DisposableSingletonContainer, applicationBuilder: ApplicationBuilder) => Promise<IProbeResult<ApplicationStartupStatus>>): ApplicationBuilder {
         this.startupHandler = startupHandler;
         return this;
     }
@@ -135,36 +136,6 @@ export class ApplicationBuilder {
     }
 
     /**
-     * Used to overrides the helmet configuration.
-     * @param {(request: Request, response: Response, next: NextFunction) => void} helmet new helmet configured middleware.
-     * @returns {ApplicationBuilder} ApplicationBuilder instance.
-     */
-    public overrideHelmetConfiguration(helmet: (request: Request, response: Response, next: NextFunction) => void): ApplicationBuilder {
-        this.helmetMiddleware = helmet;
-        return this;
-    }
-
-    /**
-     * Used to overrides the bodyParserUrlEncoding configuration.
-     * @param {(request: Request, response: Response, next: NextFunction) => void} bodyParserUrlEncoding new bodyParserUrlEncoding configured middleware.
-     * @returns {ApplicationBuilder} ApplicationBuilder instance.
-     */
-    public overrideBodyParserUrlEncodingConfiguration(bodyParserUrlEncoding: (request: Request, response: Response, next: NextFunction) => void): ApplicationBuilder {
-        this.bodyParserUrlEncodingMiddleware = bodyParserUrlEncoding;
-        return this;
-    }
-
-    /**
-     * Used to overrides the bodyParserJson configuration.
-     * @param {(request: Request, response: Response, next: NextFunction) => void} bodyParserJson new bodyParserJson configured middleware.
-     * @returns {ApplicationBuilder} ApplicationBuilder instance.
-     */
-    public overrideBodyParserJsonConfiguration(bodyParserJson: (request: Request, response: Response, next: NextFunction) => void): ApplicationBuilder {
-        this.bodyParserJsonMiddleware = bodyParserJson;
-        return this;
-    }
-
-    /**
      * Used to overrides the catchAllErrorResponseTransformer configuration.
      * @param {(request: Request, error: unknown) => unknown} transformer new catchAllErrorResponseTransformer configured middleware.
      * @returns {ApplicationBuilder} ApplicationBuilder instance.
@@ -176,11 +147,24 @@ export class ApplicationBuilder {
 
     /**
     * Used to register a SYNC/ASYNC middleware.
-    * @param {(request: Request, response: Response, next: NextFunction) => Promise<void>|void} middleware middleware to be registered.
+    * @param {ApplicationBuilderMiddleware} middleware middleware to be registered.
     * @returns {ApplicationBuilder} ApplicationBuilder instance.
     */
-    public registerApplicationMiddleware(middleware: (request: Request, response: Response, next: NextFunction) => Promise<void> | void): ApplicationBuilder {
-        this.appMiddlewares.push(middleware);
+    public registerApplicationMiddleware(middleware: ApplicationBuilderMiddleware, appliesTo: ApplicationTypes = ApplicationTypes.Main): ApplicationBuilder {
+        switch (appliesTo) {
+            case ApplicationTypes.Main:
+                this.appMiddlewares.push(middleware);
+                break;
+            case ApplicationTypes.Health:
+                this.healthMiddlewares.push(middleware);
+                break;
+            case ApplicationTypes.Both:
+                this.appMiddlewares.push(middleware);
+                this.healthMiddlewares.push(middleware);
+                break;
+            default:
+                throw new Error(`Unknown Application Type:${appliesTo}`);
+        }
         return this;
     }
 
@@ -202,12 +186,12 @@ export class ApplicationBuilder {
     public async start() {
         const startTime = Date.now();
         this.applicationStatus = { status: ApplicationStartupStatus.STARTING, data: { "invokeTime": startTime } };
-        await this.container.createInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
         try {
             const rootRouter = this.container.bootstrap.createInstanceWithoutConstructor<IRouter>(Router);
-            this.applicationStatus = await this.startupHandler(rootRouter, this.container);
+            this.applicationStatus = await this.startupHandler(rootRouter, this.container, this);
             if (this.applicationStatus.status === ApplicationStartupStatus.UP) {
                 this.registerApplicationRoutes("/", rootRouter);
+                await this.container.createInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
                 await this.container.createInstanceWithoutConstructor<Express>('applicationExpress', this.appExpressListen.bind(this));
             }
             else {
@@ -237,6 +221,7 @@ export class ApplicationBuilder {
             });
             await this.container.disposeAll();
             this.appMiddlewares = [];
+            this.healthMiddlewares = [];
             this.appRouters.clear();
             this.applicationStatus = result;
             this.applicationStatus.data["shutdownTime"] = Date.now() - startTime;
@@ -248,9 +233,6 @@ export class ApplicationBuilder {
         const applicationExpressInstance = await this.container.bootstrap.createAsyncInstanceWithoutConstructor<Express>(async () => Promise.resolve(express()));
         const applicationHttpServer = await new Promise<Server>((a, r) => {
             try {
-                applicationExpressInstance.use(this.helmetMiddleware);
-                applicationExpressInstance.use(this.bodyParserUrlEncodingMiddleware);
-                applicationExpressInstance.use(this.bodyParserJsonMiddleware);
                 if (this.swaggerDocument != null) {
                     applicationExpressInstance.use('/api-docs', swaggerUi.serve, swaggerUi.setup(this.swaggerDocument));
                 }
@@ -280,7 +262,9 @@ export class ApplicationBuilder {
         const healthExpressInstance = await this.container.bootstrap.createAsyncInstanceWithoutConstructor<Express>(async () => Promise.resolve(express()));
         const healthServer = await new Promise<Server>((a, r) => {
             try {
-                healthExpressInstance.use(this.helmetMiddleware);
+                for (const middleware of this.healthMiddlewares) {
+                    healthExpressInstance.use(middleware);
+                }
                 healthExpressInstance.get(`/health/startup`, async (req, res) => this.checkHealthStatus("startup", res));
                 healthExpressInstance.get(`/health/readiness`, async (req, res) => this.checkHealthStatus("readiness", res));
                 healthExpressInstance.get(`/health/liveliness`, async (req, res) => this.checkHealthStatus("liveliness", res));
