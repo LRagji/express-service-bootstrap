@@ -17,7 +17,7 @@ export enum ApplicationStartupStatus {
 /**
  * Enum for application shutdown status
  */
-export enum ApplicationShtudownStatus {
+export enum ApplicationShutdownStatus {
     STOPPING = "STOPPING",
     STOPPED = "STOPPED"
 }
@@ -31,4 +31,4 @@ export enum ApplicationStatus {
     UP = "UP"
 }
 
-export type ApplicationLifeCycleStatusTypes = ApplicationDefaultStatus | ApplicationShtudownStatus | ApplicationStartupStatus | ApplicationStatus;
+export type ApplicationLifeCycleStatusTypes = ApplicationDefaultStatus | ApplicationShutdownStatus | ApplicationStartupStatus | ApplicationStatus;

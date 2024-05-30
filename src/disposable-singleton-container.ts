@@ -9,7 +9,7 @@ export class DisposableSingletonContainer {
      * Creates an instance of DisposableSingletonContainer.
      * @param singletonContainer The singleton container map(defaults to an empty map)
      * @param disposeSequenceMap The dispose sequence map(defaults to an empty map, to be filled if singletonContainer is not empty)
-     * @param disposeSequence The dispose sequence number(defaults to 0, to be incremented appropiately if singletonContainer is not empty)
+     * @param disposeSequence The dispose sequence number(defaults to 0, to be incremented appropriately if singletonContainer is not empty)
      * @param bootstrap The bootstrap constructor.
      */
     constructor(

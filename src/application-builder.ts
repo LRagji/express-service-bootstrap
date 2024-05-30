@@ -3,13 +3,13 @@ import { Server } from "http";
 import helmet from 'helmet';
 import * as bodyParser from 'body-parser';
 import * as swaggerUi from "swagger-ui-express";
-import { ApplicationDefaultStatus, ApplicationLifeCycleStatusTypes, ApplicationShtudownStatus, ApplicationStartupStatus, ApplicationStatus } from "./enum-application-life-cycle-status";
+import { ApplicationDefaultStatus, ApplicationLifeCycleStatusTypes, ApplicationShutdownStatus, ApplicationStartupStatus, ApplicationStatus } from "./enum-application-life-cycle-status";
 import { DisposableSingletonContainer } from "./disposable-singleton-container";
 import { IProbe } from "./i-probe";
-import { NullProble } from "./null-probe";
+import { NullProbe } from "./null-probe";
 import { IProbeResult } from "./i-probe-result";
 
-//This is untill express implements Dispose pattern;
+//This is until express implements Dispose pattern;
 declare module 'express' {
     interface Express {
         [Symbol.asyncDispose]?: () => Promise<void>;
@@ -53,9 +53,9 @@ export class ApplicationBuilder {
         public applicationName: string = 'Application',
         public swaggerDocument: any = null,
         public startupHandler: (rootRouter: IRouter, DIContainer: DisposableSingletonContainer) => Promise<IProbeResult<ApplicationStartupStatus>> = async () => ({ status: ApplicationStartupStatus.UP, data: {} }),
-        public shutdownHandler: () => Promise<IProbeResult<ApplicationShtudownStatus>> = async () => ({ status: ApplicationShtudownStatus.STOPPED, data: {} }),
-        public livenessProbe: IProbe<ApplicationStatus> = new NullProble<ApplicationStatus>(ApplicationStatus.UP),
-        public readinessProbe: IProbe<ApplicationStatus> = new NullProble(ApplicationStatus.UP),
+        public shutdownHandler: () => Promise<IProbeResult<ApplicationShutdownStatus>> = async () => ({ status: ApplicationShutdownStatus.STOPPED, data: {} }),
+        public livenessProbe: IProbe<ApplicationStatus> = new NullProbe<ApplicationStatus>(ApplicationStatus.UP),
+        public readinessProbe: IProbe<ApplicationStatus> = new NullProbe(ApplicationStatus.UP),
         private readonly currentProcess: NodeJS.Process = process,
         private readonly exitSignals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'],
         private readonly container: DisposableSingletonContainer = new DisposableSingletonContainer()) {
@@ -70,7 +70,7 @@ export class ApplicationBuilder {
             apistatus: 500,
             err: [{
                 errcode: 500,
-                errmsg: `Unhandled exception occured, please retry your request.`
+                errmsg: `Unhandled exception occurred, please retry your request.`
             }]
         });
     }
@@ -89,7 +89,7 @@ export class ApplicationBuilder {
      * @param shutdownHandler Handler to be invoked before application shutdowns, used to cleanup reasources.
      * @returns {ApplicationBuilder} ApplicationBuilder instance.
      */
-    public overrideShutdownHandler(shutdownHandler: () => Promise<IProbeResult<ApplicationShtudownStatus>>): ApplicationBuilder {
+    public overrideShutdownHandler(shutdownHandler: () => Promise<IProbeResult<ApplicationShutdownStatus>>): ApplicationBuilder {
         this.shutdownHandler = shutdownHandler;
         return this;
     }
@@ -229,9 +229,9 @@ export class ApplicationBuilder {
      */
     public async [Symbol.asyncDispose]() {
         const startTime = Date.now();
-        this.applicationStatus = { status: ApplicationShtudownStatus.STOPPING, data: { "invokeTime": startTime } };
+        this.applicationStatus = { status: ApplicationShutdownStatus.STOPPING, data: { "invokeTime": startTime } };
         const result = await this.shutdownHandler();
-        if (result.status === ApplicationShtudownStatus.STOPPED) {
+        if (result.status === ApplicationShutdownStatus.STOPPED) {
             this.exitSignals.forEach(signal => {
                 this.currentProcess.removeListener(signal, this.exitHandler);
             });
@@ -325,7 +325,7 @@ export class ApplicationBuilder {
                                 .json({ "status": result.status, "checks": [{ "name": lifecycleStage, "state": result.status, "data": result.data }] });
                         }
                     }
-                    else if (this.applicationStatus.status === ApplicationShtudownStatus.STOPPING || this.applicationStatus.status === ApplicationShtudownStatus.STOPPED) {
+                    else if (this.applicationStatus.status === ApplicationShutdownStatus.STOPPING || this.applicationStatus.status === ApplicationShutdownStatus.STOPPED) {
                         res.status(503)
                             .json({ "status": this.applicationStatus.status, "checks": [{ "name": lifecycleStage, "state": this.applicationStatus.status, "data": { reason: "Application received exit signal." } }] });
                     }
