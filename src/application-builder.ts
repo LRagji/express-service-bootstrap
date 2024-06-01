@@ -29,6 +29,10 @@ declare module 'express' {
  * It sets up the application's health status, ports, middlewares, routers, and error handling.
  */
 export class ApplicationBuilder {
+
+    public static readonly DINAME_ApplicationExpress = "AE";
+    public static readonly DINAME_HealthExpress = "HE";
+
     private applicationStatus: IProbeResult<ApplicationLifeCycleStatusTypes> = { status: ApplicationDefaultStatus.UNKNOWN, data: {} };
     private applicationPort: number = 3000;
     private healthPort: number = 5678;
@@ -179,8 +183,8 @@ export class ApplicationBuilder {
             this.applicationStatus = await this.startupHandler(rootRouter, this.container, this);
             if (this.applicationStatus.status === ApplicationStartupStatus.UP) {
                 this.registerApplicationHandler(rootRouter, "/", 1, ApplicationTypes.Main);
-                await this.container.createAsyncInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
-                await this.container.createAsyncInstanceWithoutConstructor<Express>('applicationExpress', this.appExpressListen.bind(this));
+                await this.container.createAsyncInstanceWithoutConstructor<Express>(ApplicationBuilder.DINAME_HealthExpress, this.healthExpressListen.bind(this));
+                await this.container.createAsyncInstanceWithoutConstructor<Express>(ApplicationBuilder.DINAME_ApplicationExpress, this.appExpressListen.bind(this));
             }
             else {
                 this.applicationStatus = { status: ApplicationStatus.DOWN, data: { "reason": `Application startup handler returned failure status: ${this.applicationStatus.status}.` } };
@@ -217,7 +221,7 @@ export class ApplicationBuilder {
 
     //------Private Methods------//
     private async appExpressListen() {
-        const applicationExpressInstance = await this.container.bootstrap.createAsyncInstanceWithoutConstructor<Express>(async () => Promise.resolve(express()));
+        const applicationExpressInstance = this.container.bootstrap.createInstanceWithoutConstructor<Express>(express);
         const applicationHttpServer = await new Promise<Server>((a, r) => {
             try {
                 for (const [path, handler] of this.appHandlers.sort()) {
@@ -246,7 +250,7 @@ export class ApplicationBuilder {
     }
 
     private async healthExpressListen() {
-        const healthExpressInstance = await this.container.bootstrap.createAsyncInstanceWithoutConstructor<Express>(async () => Promise.resolve(express()));
+        const healthExpressInstance = this.container.bootstrap.createInstanceWithoutConstructor<Express>(express);
         const healthServer = await new Promise<Server>((a, r) => {
             try {
                 for (const [path, handler] of this.healthHandlers.sort()) {
