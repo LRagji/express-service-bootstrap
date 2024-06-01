@@ -1,3 +1,4 @@
+//TODO: This is to be moved to a table data structure
 export class SortedMap<T> {
 
     private maxOrder = 0;

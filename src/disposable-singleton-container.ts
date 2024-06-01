@@ -97,6 +97,18 @@ export class DisposableSingletonContainer {
     }
 
     /**
+     * Registers an existing instance based on name.
+     * @param {string} name The name of the instance
+     * @param {InstanceType} instance The instance of the class
+     * @param {number} disposeSequence The dispose sequence number(optional)
+     * @template InstanceType The type of the instance
+     * @returns {void} void
+     */
+    public registerInstance<InstanceType>(name: string, instance: InstanceType, disposeSequence?: number, overrideExistingInstance: boolean = true): void {
+        throw new Error('Not implemented');
+    }
+
+    /**
      * Disposes an existing instance based on name.
      * @param {string} name The name of the instance
      * @returns {Promise<void>} void
