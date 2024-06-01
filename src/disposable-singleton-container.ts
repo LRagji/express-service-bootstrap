@@ -30,12 +30,7 @@ export class DisposableSingletonContainer {
     public createInstance<InstanceType>(name: string, typeConstructor: new (...constructorArguments: any[]) => InstanceType, constructorArguments?: any[], disposeSequence?: number): InstanceType {
         if (!this.singletonContainer.has(name)) {
             const newInstance = this.bootstrap.createInstance<InstanceType>(typeConstructor, constructorArguments);
-            this.disposeSequence++;
-            disposeSequence = disposeSequence || this.disposeSequence;
-            const existingMembers = this.disposeSequenceMap.get(disposeSequence) || new Set<string>()
-            existingMembers.add(name);
-            this.disposeSequenceMap.set(disposeSequence, existingMembers);
-            this.singletonContainer.set(name, newInstance);
+            this.registerInstance<InstanceType>(name, newInstance, disposeSequence, true);
         }
         return this.singletonContainer.get(name) as InstanceType;
     }
@@ -51,12 +46,7 @@ export class DisposableSingletonContainer {
     public async createAsyncInstanceWithoutConstructor<InstanceType>(name: string, typeConstructorFunction: (...constructorArguments: any[]) => Promise<InstanceType>, constructorFunctionArguments?: any[], disposeSequence?: number): Promise<InstanceType> {
         if (!this.singletonContainer.has(name)) {
             const newInstance = await this.bootstrap.createAsyncInstanceWithoutConstructor<InstanceType>(typeConstructorFunction, constructorFunctionArguments);
-            this.disposeSequence++;
-            disposeSequence = disposeSequence || this.disposeSequence;
-            const existingMembers = this.disposeSequenceMap.get(disposeSequence) || new Set<string>()
-            existingMembers.add(name);
-            this.disposeSequenceMap.set(disposeSequence, existingMembers);
-            this.singletonContainer.set(name, newInstance);
+            this.registerInstance<InstanceType>(name, newInstance, disposeSequence, true);
         }
         return this.singletonContainer.get(name) as InstanceType;
     }
@@ -74,12 +64,7 @@ export class DisposableSingletonContainer {
     public createInstanceWithoutConstructor<InstanceType>(name: string, typeConstructorFunction: (...constructorArguments: any[]) => InstanceType, constructorFunctionArguments?: any[], disposeSequence?: number): InstanceType {
         if (!this.singletonContainer.has(name)) {
             const newInstance = this.bootstrap.createInstanceWithoutConstructor<InstanceType>(typeConstructorFunction, constructorFunctionArguments);
-            this.disposeSequence++;
-            disposeSequence = disposeSequence || this.disposeSequence;
-            const existingMembers = this.disposeSequenceMap.get(disposeSequence) || new Set<string>()
-            existingMembers.add(name);
-            this.disposeSequenceMap.set(disposeSequence, existingMembers);
-            this.singletonContainer.set(name, newInstance);
+            this.registerInstance<InstanceType>(name, newInstance, disposeSequence, true);
         }
         return this.singletonContainer.get(name) as InstanceType;
     }
@@ -104,8 +89,19 @@ export class DisposableSingletonContainer {
      * @template InstanceType The type of the instance
      * @returns {void} void
      */
-    public registerInstance<InstanceType>(name: string, instance: InstanceType, disposeSequence?: number, overrideExistingInstance: boolean = true): void {
-        throw new Error('Not implemented');
+    public registerInstance<InstanceType>(name: string, instance: InstanceType, disposeSequence?: number, overrideExistingInstance: boolean = true): boolean {
+        //throw new Error('Not implemented');
+        if (overrideExistingInstance === false && this.singletonContainer.has(name)) {
+            return false
+        }
+
+        this.disposeSequence++;
+        disposeSequence = disposeSequence || this.disposeSequence;
+        const existingMembers = this.disposeSequenceMap.get(disposeSequence) || new Set<string>()
+        existingMembers.add(name);
+        this.disposeSequenceMap.set(disposeSequence, existingMembers);
+        this.singletonContainer.set(name, instance);
+        return true;
     }
 
     /**
