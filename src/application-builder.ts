@@ -178,8 +178,8 @@ export class ApplicationBuilder {
             this.applicationStatus = await this.startupHandler(rootRouter, this.container, this);
             if (this.applicationStatus.status === ApplicationStartupStatus.UP) {
                 this.registerApplicationHandler(rootRouter, "/", 0, ApplicationTypes.Main);
-                await this.container.createInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
-                await this.container.createInstanceWithoutConstructor<Express>('applicationExpress', this.appExpressListen.bind(this));
+                await this.container.createAsyncInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
+                await this.container.createAsyncInstanceWithoutConstructor<Express>('applicationExpress', this.appExpressListen.bind(this));
             }
             else {
                 this.applicationStatus = { status: ApplicationStatus.DOWN, data: { "reason": `Application startup handler returned failure status: ${this.applicationStatus.status}.` } };

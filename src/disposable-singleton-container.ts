@@ -48,9 +48,32 @@ export class DisposableSingletonContainer {
      * @param {number} disposeSequence The dispose sequence number(optional)
      * @returns The instance of the class
      */
-    public async createInstanceWithoutConstructor<InstanceType>(name: string, typeConstructorFunction: (...constructorArguments: any[]) => Promise<InstanceType>, constructorFunctionArguments?: any[], disposeSequence?: number): Promise<InstanceType> {
+    public async createAsyncInstanceWithoutConstructor<InstanceType>(name: string, typeConstructorFunction: (...constructorArguments: any[]) => Promise<InstanceType>, constructorFunctionArguments?: any[], disposeSequence?: number): Promise<InstanceType> {
         if (!this.singletonContainer.has(name)) {
             const newInstance = await this.bootstrap.createAsyncInstanceWithoutConstructor<InstanceType>(typeConstructorFunction, constructorFunctionArguments);
+            this.disposeSequence++;
+            disposeSequence = disposeSequence || this.disposeSequence;
+            const existingMembers = this.disposeSequenceMap.get(disposeSequence) || new Set<string>()
+            existingMembers.add(name);
+            this.disposeSequenceMap.set(disposeSequence, existingMembers);
+            this.singletonContainer.set(name, newInstance);
+        }
+        return this.singletonContainer.get(name) as InstanceType;
+    }
+
+    /**
+     * Creates a new instance of a class without a constructor or returns an existing one based on name.
+     * @param {string} name The name of the instance, has to be unique across all instances.
+     * @param typeConstructorFunction The class constructor
+     * @param constructorFunctionArguments The arguments to pass to the constructor(optional)
+     * @param {number} disposeSequence The dispose sequence number(optional)
+     * @returns The instance of the class
+     * @template InstanceType The type of the instance
+     * @returns {InstanceType} The instance of the class
+     */
+    public createInstanceWithoutConstructor<InstanceType>(name: string, typeConstructorFunction: (...constructorArguments: any[]) => InstanceType, constructorFunctionArguments?: any[], disposeSequence?: number): InstanceType {
+        if (!this.singletonContainer.has(name)) {
+            const newInstance = this.bootstrap.createInstanceWithoutConstructor<InstanceType>(typeConstructorFunction, constructorFunctionArguments);
             this.disposeSequence++;
             disposeSequence = disposeSequence || this.disposeSequence;
             const existingMembers = this.disposeSequenceMap.get(disposeSequence) || new Set<string>()
