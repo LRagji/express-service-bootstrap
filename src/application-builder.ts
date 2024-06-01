@@ -32,8 +32,8 @@ export class ApplicationBuilder {
     private applicationStatus: IProbeResult<ApplicationLifeCycleStatusTypes> = { status: ApplicationDefaultStatus.UNKNOWN, data: {} };
     private applicationPort: number = 3000;
     private healthPort: number = 5678;
-    private appHandlers = new SortedMap<ApplicationBuilderMiddleware | IRouter>();
-    private healthHandlers = new SortedMap<ApplicationBuilderMiddleware | IRouter>();
+    private appHandlers = new SortedMap<ApplicationBuilderMiddleware | IRouter | SortedMap<ApplicationBuilderMiddleware>>();
+    private healthHandlers = new SortedMap<ApplicationBuilderMiddleware | IRouter | SortedMap<ApplicationBuilderMiddleware>>();
     private catchAllErrorResponseTransformer: (request: Request, error: unknown) => unknown;
     private readonly exitHandler = this[Symbol.asyncDispose].bind(this);
 
@@ -149,16 +149,17 @@ export class ApplicationBuilder {
     * @returns {ApplicationBuilder} ApplicationBuilder instance.
     */
     public registerApplicationHandler(handler: ApplicationBuilderMiddleware | IRouter, hostingPath: HostingPath, order: number | undefined = undefined, appliesTo: ApplicationTypes = ApplicationTypes.Main): ApplicationBuilder {
+        if (order != undefined && order < 1) throw new Error('Order must be greater than 0');
         switch (appliesTo) {
             case ApplicationTypes.Main:
-                this.appHandlers.set(hostingPath, handler, order);
+                this.setRoutes(this.appHandlers, handler, hostingPath, order);
                 break;
             case ApplicationTypes.Health:
-                this.healthHandlers.set(hostingPath, handler, order);
+                this.setRoutes(this.healthHandlers, handler, hostingPath, order);
                 break;
             case ApplicationTypes.Both:
-                this.appHandlers.set(hostingPath, handler, order);
-                this.healthHandlers.set(hostingPath, handler, order);
+                this.setRoutes(this.appHandlers, handler, hostingPath, order);
+                this.setRoutes(this.healthHandlers, handler, hostingPath, order);
                 break;
             default:
                 throw new Error(`Unknown Application Type:${appliesTo}`);
@@ -177,7 +178,7 @@ export class ApplicationBuilder {
             const rootRouter = this.container.bootstrap.createInstanceWithoutConstructor<IRouter>(Router);
             this.applicationStatus = await this.startupHandler(rootRouter, this.container, this);
             if (this.applicationStatus.status === ApplicationStartupStatus.UP) {
-                this.registerApplicationHandler(rootRouter, "/", 0, ApplicationTypes.Main);
+                this.registerApplicationHandler(rootRouter, "/", 1, ApplicationTypes.Main);
                 await this.container.createAsyncInstanceWithoutConstructor<Express>('healthExpress', this.healthExpressListen.bind(this));
                 await this.container.createAsyncInstanceWithoutConstructor<Express>('applicationExpress', this.appExpressListen.bind(this));
             }
@@ -221,10 +222,11 @@ export class ApplicationBuilder {
             try {
                 for (const [path, handler] of this.appHandlers.sort()) {
                     if (path === "*") {
-                        applicationExpressInstance.use(handler);
+                        const globalMiddleWares = Array.from((handler as SortedMap<ApplicationBuilderMiddleware>).sort().values());
+                        applicationExpressInstance.use(globalMiddleWares);
                     }
                     else {
-                        applicationExpressInstance.use(path, handler);
+                        applicationExpressInstance.use(path, handler as ApplicationBuilderMiddleware | IRouter);
                     }
                 }
                 applicationExpressInstance.use(this.errorHandler.bind(this));
@@ -249,10 +251,11 @@ export class ApplicationBuilder {
             try {
                 for (const [path, handler] of this.healthHandlers.sort()) {
                     if (path === "*") {
-                        healthExpressInstance.use(handler);
+                        const globalMiddleWares = Array.from((handler as SortedMap<ApplicationBuilderMiddleware>).sort().values());
+                        healthExpressInstance.use(globalMiddleWares);
                     }
                     else {
-                        healthExpressInstance.use(path, handler);
+                        healthExpressInstance.use(path, handler as ApplicationBuilderMiddleware | IRouter);
                     }
                 }
                 healthExpressInstance.get(`/health/startup`, async (req, res) => this.checkHealthStatus("startup", res));
@@ -335,5 +338,16 @@ export class ApplicationBuilder {
         const errorResponse = this.catchAllErrorResponseTransformer(req, err);
         res.status(500)
             .send(errorResponse);
+    }
+
+    private setRoutes(map: SortedMap<ApplicationBuilderMiddleware | IRouter | SortedMap<ApplicationBuilderMiddleware>>, handler: ApplicationBuilderMiddleware | IRouter, hostingPath: HostingPath, order: number | undefined = undefined) {
+        if (hostingPath === "*") {
+            const existingMap = map.get(hostingPath) as SortedMap<ApplicationBuilderMiddleware> || new SortedMap<ApplicationBuilderMiddleware>();
+            existingMap.set(hostingPath, handler, order);
+            map.set(hostingPath, existingMap, 0);
+        }
+        else {
+            map.set(hostingPath, handler, order);
+        }
     }
 }

@@ -19,6 +19,10 @@ export class SortedMap<T> {
         this.sortedKeys.set(key, order);
     }
 
+    public get(key: string): T | undefined {
+        return this.map.get(key);
+    }
+
     public sort(): Map<string, T> {
         const sortedKeys = Array.from(this.sortedKeys.entries())
             .sort((a, b) => a[1] - b[1]);
