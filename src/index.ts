@@ -6,6 +6,7 @@ import { IProbeResult } from './i-probe-result';
 import { NullProbe } from './null-probe';
 import { IProbe } from './i-probe';
 import { ApplicationRouter, Convenience } from './convenience';
+import { EnvironmentVariables } from './environment-variables';
 
 export {
     ApplicationStatus,
@@ -21,5 +22,6 @@ export {
     ApplicationTypes,
     Convenience,
     ApplicationRouter,
-    HostingPath
+    HostingPath,
+    EnvironmentVariables
 };
