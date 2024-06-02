@@ -32,9 +32,9 @@
   "author": "Laukik",
   "license": "SEE LICENSE IN license.md",
   "bugs": {
-    "url": "https://github.com/LRagji/indexed-column-dictionary/issues"
+    "url": "https://github.com/LRagji/express-service-bootstrap/issues/issues"
   },
-  "homepage": "https://github.com/LRagji/indexed-column-dictionary#readme",
+  "homepage": "https://github.com/LRagji/express-service-bootstrap/issues#readme",
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20.12.12",
