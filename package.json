@@ -30,7 +30,7 @@
     "README.md"
   ],
   "author": "Laukik",
-  "license": "SEE LICENSE IN license.md",
+  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/LRagji/express-service-bootstrap/issues/issues"
   },
