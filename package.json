@@ -1,6 +1,6 @@
 {
   "name": "express-service-bootstrap",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "This is a convenience package for starting a express API with security, health checks, process exits etc.",
   "main": "dist/src/index.js",
   "directories": {
