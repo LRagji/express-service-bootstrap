@@ -7,6 +7,7 @@ import { NullProbe } from './null-probe';
 import { IProbe } from './i-probe';
 import { ApplicationRouter, Convenience } from './convenience';
 import { EnvironmentVariables } from './environment-variables';
+import { IRouter } from 'express';
 
 export {
     ApplicationStatus,
@@ -23,5 +24,6 @@ export {
     Convenience,
     ApplicationRouter,
     HostingPath,
-    EnvironmentVariables
+    EnvironmentVariables,
+    IRouter
 };
