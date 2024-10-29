@@ -53,6 +53,9 @@ async function AppStartUp(rootRouter, DIContainer, application) {
         .get("/", (req, res) => {
             res.send(req.DIProp.fetchInstance("msg").message);
         })
+        .post("/", (req, res) => {
+            console.log(req.body);
+        })
         .get("/error", (req, res) => {
             throw new Error("This is an error to validate final 'ErrorResponseTransformer' error handling of library");
         });
@@ -64,8 +67,8 @@ async function AppStartUp(rootRouter, DIContainer, application) {
         .registerApplicationHandler(utilities.helmetMiddleware(), "*", 1, ApplicationTypes.Both)                                 //register helmet middleware for both application and health
         .registerApplicationHandler(utilities.bodyParserURLEncodingMiddleware(), "*", 2, ApplicationTypes.Main)                  //register body parser url middleware for application
         .registerApplicationHandler(utilities.bodyParserJSONEncodingMiddleware({ limit: '50M' }), "*", 3, ApplicationTypes.Main) //register body parser json middleware for application
-        .registerApplicationHandler(apiDocs.router, apiDocs.hostingPath, 3, ApplicationTypes.Main)                               //register api docs
-        .registerApplicationHandler(utilities.injectInRequestMiddleware("DIProp", DIContainer), "*", 4, ApplicationTypes.Main) //register DI container middleware
+        .registerApplicationHandler(apiDocs.router, apiDocs.hostingPath, 4, ApplicationTypes.Main)                               //register api docs
+        .registerApplicationHandler(utilities.injectInRequestMiddleware("DIProp", DIContainer), "*", 6, ApplicationTypes.Main) //register DI container middleware
         .overrideCatchAllErrorResponseTransformer((req, error) => ({                                                             //override the default catch all error response transformer
             path: req.path,
             status: 500,
