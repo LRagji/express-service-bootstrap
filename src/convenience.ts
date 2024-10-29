@@ -4,7 +4,6 @@ import { ApplicationBuilderMiddleware } from "./application-builder";
 import helmet, { HelmetOptions } from "helmet";
 import { Router, IRouter, NextFunction, Request, Response } from "express";
 import * as swaggerUi from "swagger-ui-express";
-import { DisposableSingletonContainer } from "./disposable-singleton-container";
 
 export type ApplicationRouter = { hostingPath: string, router: IRouter };
 
