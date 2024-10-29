@@ -2,8 +2,9 @@ import bodyParser from "body-parser";
 import { BootstrapConstructor } from "./bootstrap-constructor";
 import { ApplicationBuilderMiddleware } from "./application-builder";
 import helmet, { HelmetOptions } from "helmet";
-import { Router, IRouter } from "express";
+import { Router, IRouter, NextFunction, Request, Response } from "express";
 import * as swaggerUi from "swagger-ui-express";
+import { DisposableSingletonContainer } from "./disposable-singleton-container";
 
 export type ApplicationRouter = { hostingPath: string, router: IRouter };
 
@@ -46,9 +47,29 @@ export class Convenience {
         return this.customConstructor.createInstanceWithoutConstructor(helmet, [helmetOptions]);
     }
 
+    /**
+     * Creates a new instance of the swagger API documentation middleware.
+     * @param swaggerDocument The swagger document to use for the API documentation, typically a json object.
+     * @param hostPath The host path to use for the swagger API documentation.
+     * @returns {ApplicationRouter} A new instance of the swagger API documentation middleware.
+     */
     public swaggerAPIDocs(swaggerDocument: any, hostPath = '/api-docs'): ApplicationRouter {
         const swaggerRouter = this.customConstructor.createInstanceWithoutConstructor<IRouter>(Router);
         swaggerRouter.use(swaggerUi.serve, swaggerUi.setup(swaggerDocument));
         return { hostingPath: hostPath, router: swaggerRouter };
+    }
+
+    /**
+     * Injects a specified object into the request under a given property name.
+     * @param requestPropertyName - The name of the property to add to the request object.
+     * @param object - The object to inject into the request.
+     * @returns {ApplicationBuilderMiddleware} A middleware function that injects the object into the request.
+     */
+    public injectInRequestMiddleware(requestPropertyName: string, object: any): ApplicationBuilderMiddleware {
+        const middleware = (req: Request, res: Response, next: NextFunction) => {
+            (req as any)[requestPropertyName] = object;
+            next();
+        }
+        return this.customConstructor.createInstanceWithoutConstructor<ApplicationBuilderMiddleware>(() => middleware);
     }
 }
