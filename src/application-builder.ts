@@ -5,7 +5,7 @@ import { DisposableSingletonContainer } from "./disposable-singleton-container";
 import { IProbe } from "./i-probe";
 import { NullProbe } from "./null-probe";
 import { IProbeResult } from "./i-probe-result";
-import { SortedMap } from "./sorted-map";
+import { SortedMap } from "node-apparatus";
 
 export type ApplicationBuilderMiddleware = (request: Request, response: Response, next: NextFunction) => Promise<void> | void;
 

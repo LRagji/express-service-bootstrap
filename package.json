@@ -50,7 +50,7 @@
     "body-parser": "^1.20.2",
     "express": "^4.19.2",
     "helmet": "^7.1.0",
-    "node-apparatus": "^0.1.8",
+    "node-apparatus": "^0.1.9",
     "swagger-ui-express": "^5.0.0"
   }
 }
