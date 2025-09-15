@@ -347,7 +347,7 @@ export class ApplicationBuilder {
     private setRoutes(map: SortedMap<ApplicationBuilderMiddleware | IRouter | SortedMap<ApplicationBuilderMiddleware>>, handler: ApplicationBuilderMiddleware | IRouter, hostingPath: HostingPath, order: number | undefined = undefined) {
         if (hostingPath === "*") {
             const existingMap = map.get(hostingPath) as SortedMap<ApplicationBuilderMiddleware> || new SortedMap<ApplicationBuilderMiddleware>();
-            existingMap.set(`${hostingPath}-${order}`, handler, order);
+            existingMap.set(`${hostingPath}-${order}`, handler as any, order);
             map.set(hostingPath, existingMap, 0);
         }
         else {
