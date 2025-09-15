@@ -4,6 +4,7 @@ import { ApplicationBuilderMiddleware } from "./application-builder";
 import helmet, { HelmetOptions } from "helmet";
 import { Router, IRouter, NextFunction, Request, Response } from "express";
 import * as swaggerUi from "swagger-ui-express";
+import compression, { CompressionOptions } from "compression";
 
 export type ApplicationRouter = { hostingPath: string, router: IRouter };
 
@@ -70,5 +71,14 @@ export class Convenience {
             next();
         }
         return this.customConstructor.createInstanceWithoutConstructor<ApplicationBuilderMiddleware>(() => middleware);
+    }
+
+    /**
+     * Creates a new instance of the compression middleware.
+     * @param compressionOptions The options to use for the compression middleware.
+     * @returns {ApplicationBuilderMiddleware} A new instance of the compression middleware.
+     */
+    public compressionMiddleware(compressionOptions?: CompressionOptions) {
+        return this.customConstructor.createInstanceWithoutConstructor(compression, [compressionOptions]);
     }
 }

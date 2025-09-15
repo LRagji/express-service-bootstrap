@@ -12,7 +12,7 @@
     "clean-build": "rimraf ./dist && tsc",
     "copy-files": "npx copyfiles ./package.json ./dist/",
     "build": "npm run clean-build && npm run copy-files",
-    "test": "npm run build && nyc --all --reporter=lcov --reporter=text --exclude=src/index.ts --exclude=test/** --exclude=examples/** --exclude=coverage/** node --test ./dist/test"
+    "test": "npm run build && nyc --all --reporter=lcov --reporter=text --exclude=src/index.ts --exclude=test/** --exclude=examples/** --exclude=coverage/** node --test ./dist/test/**/*.js"
   },
   "keywords": [
     "express",
@@ -36,21 +36,23 @@
   },
   "homepage": "https://github.com/LRagji/express-service-bootstrap/issues#readme",
   "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/node": "^20.12.12",
-    "@types/sinon": "^17.0.3",
-    "@types/swagger-ui-express": "^4.1.6",
+    "@types/compression": "^1.8.1",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.4.0",
+    "@types/sinon": "^17.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
     "copyfiles": "^2.4.1",
-    "nyc": "^15.1.0",
-    "rimraf": "^5.0.7",
-    "sinon": "^18.0.0",
-    "typescript": "^5.4.5"
+    "nyc": "^17.1.0",
+    "rimraf": "^6.0.1",
+    "sinon": "^21.0.0",
+    "typescript": "^5.9.2"
   },
   "dependencies": {
-    "body-parser": "^1.20.2",
-    "express": "^4.19.2",
-    "helmet": "^7.1.0",
-    "node-apparatus": "^0.1.9",
-    "swagger-ui-express": "^5.0.0"
+    "body-parser": "^2.2.0",
+    "compression": "^1.8.1",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "node-apparatus": "^0.1.15",
+    "swagger-ui-express": "^5.0.1"
   }
 }
