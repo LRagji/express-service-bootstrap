@@ -5,6 +5,16 @@ const applicationName = "Test Simple App";
 const app = new ApplicationBuilder(applicationName, OpenApiDefinition);
 const utilities = new Convenience();
 
+function shouldCompress(req, res) {
+    if (req.headers['x-no-compression']) {
+        // don't compress responses with this request header
+        return false
+    }
+
+    // fallback to standard filter function
+    return true
+}
+
 async function AppStartUp(rootRouter, DIContainer, application) {
 
     //Connect to DB or create DB Pool
@@ -32,6 +42,7 @@ async function AppStartUp(rootRouter, DIContainer, application) {
         .registerApplicationHandler(utilities.bodyParserJSONEncodingMiddleware({ limit: '50M' }), "*", 3, ApplicationTypes.Main) //register body parser json middleware for application
         .registerApplicationHandler(apiDocs.router, apiDocs.hostingPath, 4, ApplicationTypes.Main)                               //register api docs
         .registerApplicationHandler(utilities.injectInRequestMiddleware("DIProp", DIContainer), "*", 5, ApplicationTypes.Main)   //register DI container middleware
+        .registerApplicationHandler(utilities.compressionMiddleware({ filter: shouldCompress }), "*", 6, ApplicationTypes.Main)  //register compression middleware
         .overrideCatchAllErrorResponseTransformer((req, error) => ({                                                             //override the default catch all error response transformer
             path: req.path,
             status: 500,

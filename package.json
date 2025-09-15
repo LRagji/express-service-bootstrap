@@ -12,7 +12,7 @@
     "clean-build": "rimraf ./dist && tsc",
     "copy-files": "npx copyfiles ./package.json ./dist/",
     "build": "npm run clean-build && npm run copy-files",
-    "test": "npm run build && nyc --all --reporter=lcov --reporter=text --exclude=src/index.ts --exclude=test/** --exclude=examples/** --exclude=coverage/** node --test ./dist/test"
+    "test": "npm run build && nyc --all --reporter=lcov --reporter=text --exclude=src/index.ts --exclude=test/** --exclude=examples/** --exclude=coverage/** node --test ./dist/test/**/*.js"
   },
   "keywords": [
     "express",
