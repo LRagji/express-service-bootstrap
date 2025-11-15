@@ -57,6 +57,114 @@ describe('Convenience', () => {
             assert.strictEqual(stubbedConstructor.firstCall.args[0] !== null, true);
             assert.deepStrictEqual(stubbedConstructor.firstCall.args[1], [{ extended: true }]);
         });
+
+        it('encodeBodyStream should produce a readable stream with correct contents and size', async () => {
+            const payload = 'hello world';
+
+            const { stream, size } = convenience.encodeBodyStream(payload);
+
+            // Verify size
+            const encoded = new TextEncoder().encode(payload);
+            assert.strictEqual(size, encoded.length);
+
+            // Verify stream contents
+            const reader = (stream as any).getReader();
+            const readResult = await reader.read();
+            const decoded = new TextDecoder().decode(readResult.value);
+            assert.strictEqual(decoded, payload);
+
+            // Verify stream is done and closed
+            const after = await reader.read();
+            assert.strictEqual(after.done, true);
+        });
+
+        it('encodeBodyStream should produce a readable stream with correct contents and size for non ASCII chars', async () => {
+            const payload = 'hello 😊 𠝹 world';
+
+            const { stream, size } = convenience.encodeBodyStream(payload);
+
+            // Verify size
+            const encoded = new TextEncoder().encode(payload);
+            assert.strictEqual(size, encoded.length);
+
+            // Verify stream contents
+            const reader = (stream as any).getReader();
+            const readResult = await reader.read();
+            const decoded = new TextDecoder().decode(readResult.value);
+            assert.strictEqual(decoded, payload);
+
+            // Verify stream is done and closed
+            const after = await reader.read();
+            assert.strictEqual(after.done, true);
+        });
+
+        it('compressibleRequestGZIP should compress body and set Content-Encoding when shouldCompress is true', async () => {
+            const url = new URL('http://example.com/test');
+            const headers: Record<string, string> = { "Accept": "application/json" };
+            const bodyStream = { pipeThrough: Sinon.fake.returns('COMPRESSED_STREAM') } as any;
+
+            class FakeCompressionStream {
+                constructor(public algo: string) { }
+            }
+            const fetchStub = Sinon.fake.resolves({ status: 200 } as any);
+            const context = { CompressionStream: FakeCompressionStream, fetch: fetchStub } as any;
+
+            const response = await convenience.compressibleRequestGZIP('POST', url, headers, bodyStream, true, context);
+
+            assert(fetchStub.calledOnce);
+            const calledUrl = fetchStub.firstCall.args[0];
+            const calledOptions = fetchStub.firstCall.args[1];
+            assert.strictEqual(calledUrl, url);
+            assert.strictEqual(headers['content-encoding'], 'gzip');
+            assert.strictEqual(calledOptions.method, 'POST');
+            assert.strictEqual(calledOptions.headers, headers);
+            assert.strictEqual(calledOptions.body, 'COMPRESSED_STREAM');
+            assert((bodyStream.pipeThrough as Sinon.SinonSpy).calledOnce);
+            const passedCompressionInstance = (bodyStream.pipeThrough as Sinon.SinonSpy).firstCall.args[0];
+            assert(passedCompressionInstance instanceof FakeCompressionStream);
+            assert.strictEqual(response.status, 200);
+        });
+
+        it('compressibleRequestGZIP should not compress body and should not set Content-Encoding when shouldCompress is false', async () => {
+            const url = new URL('http://example.com/no-compress');
+            const headers: Record<string, string> = {};
+            const bodyStream = { pipeThrough: Sinon.fake() } as any;
+            const fetchStub = Sinon.fake.resolves({ status: 201 } as any);
+            const context = { CompressionStream: class { }, fetch: fetchStub } as any;
+
+            const response = await convenience.compressibleRequestGZIP('PUT', url, headers, bodyStream, false, context);
+
+            assert(fetchStub.calledOnce);
+            const calledUrl = fetchStub.firstCall.args[0];
+            const calledOptions = fetchStub.firstCall.args[1];
+            assert.strictEqual(calledUrl, url);
+            assert.strictEqual(calledOptions.method, 'PUT');
+            assert.strictEqual(calledOptions.body, bodyStream);
+            assert.strictEqual(headers['content-encoding'], undefined);
+            assert((bodyStream.pipeThrough as Sinon.SinonSpy).notCalled);
+            assert.strictEqual(response.status, 201);
+        });
+
+        it('Component Test: for compressibleRequestGZIP with encodeBodyStream with an actual ECHO API when compression is enabled.', async () => {
+
+            const payload = 'The quick brown fox jumps over the lazy dog. こんにちは世界🌏';
+            const { stream: bodyStream, size } = convenience.encodeBodyStream(payload);
+
+            const url = new URL('https://postman-echo.com/post');
+            const headers: Record<string, string> = {
+                "Content-Type": "text/plain",
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip"
+            };
+
+            const response = await convenience.compressibleRequestGZIP('POST', url, headers, bodyStream, true);
+
+            assert.strictEqual(response.status, 200);
+            const responseBody = await response.json();
+            const echoedData: string = responseBody.data;
+            assert.strictEqual(echoedData, payload);
+        });
+
         // New tests for other methods should be reviewed as well
         it('should call createInstanceWithoutConstructor with bodyParser.urlencoded and custom options', () => {
             const options = { extended: false };
@@ -169,5 +277,6 @@ describe('Convenience', () => {
             const result = convenience.swaggerAPIDocs(swaggerDoc);
             assert.strictEqual(result.hostingPath, '/api-docs');
         });
+
     });
 });
