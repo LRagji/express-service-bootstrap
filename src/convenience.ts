@@ -2,7 +2,7 @@ import bodyParser from "body-parser";
 import { BootstrapConstructor } from "./bootstrap-constructor";
 import { ApplicationBuilderMiddleware } from "./application-builder";
 import helmet, { HelmetOptions } from "helmet";
-import { Router, IRouter, NextFunction, Request, Response } from "express";
+import { Router, IRouter, NextFunction, Request, Response, static as expressStatic } from "express";
 import * as swaggerUi from "swagger-ui-express";
 import compression, { CompressionOptions } from "compression";
 
@@ -78,7 +78,16 @@ export class Convenience {
      * @param compressionOptions The options to use for the compression middleware.
      * @returns {ApplicationBuilderMiddleware} A new instance of the compression middleware.
      */
-    public compressionMiddleware(compressionOptions?: CompressionOptions) {
-        return this.customConstructor.createInstanceWithoutConstructor(compression, [compressionOptions]);
+    public compressionMiddleware(compressionOptions?: CompressionOptions): ApplicationBuilderMiddleware {
+        return this.customConstructor.createInstanceWithoutConstructor<ApplicationBuilderMiddleware>((options) => compression(options) as ApplicationBuilderMiddleware, [compressionOptions]);
+    }
+
+    /**
+     * Creates a new instance of the static file serving middleware.
+     * @param staticPath The path to the static files to serve.
+     * @returns {ApplicationBuilderMiddleware} A new instance of the static file serving middleware.
+     */
+    public staticMiddleware(staticPath: string): ApplicationBuilderMiddleware {
+        return this.customConstructor.createInstanceWithoutConstructor<ApplicationBuilderMiddleware>(expressStatic, [staticPath]);
     }
 }

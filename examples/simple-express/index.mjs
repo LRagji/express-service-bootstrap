@@ -43,6 +43,7 @@ async function AppStartUp(rootRouter, DIContainer, application) {
         .registerApplicationHandler(apiDocs.router, apiDocs.hostingPath, 4, ApplicationTypes.Main)                               //register api docs
         .registerApplicationHandler(utilities.injectInRequestMiddleware("DIProp", DIContainer), "*", 5, ApplicationTypes.Main)   //register DI container middleware
         .registerApplicationHandler(utilities.compressionMiddleware({ filter: shouldCompress }), "*", 6, ApplicationTypes.Main)  //register compression middleware
+        .registerApplicationHandler(utilities.staticMiddleware("examples\\simple-express\\public"), "/public", 7, ApplicationTypes.Main)                  //register static file serving middleware
         .overrideCatchAllErrorResponseTransformer((req, error) => ({                                                             //override the default catch all error response transformer
             path: req.path,
             status: 500,
