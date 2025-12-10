@@ -2,7 +2,7 @@ import bodyParser from "body-parser";
 import { BootstrapConstructor } from "./bootstrap-constructor";
 import { ApplicationBuilderMiddleware } from "./application-builder";
 import helmet, { HelmetOptions } from "helmet";
-import { Router, IRouter, NextFunction, Request, Response } from "express";
+import { Router, IRouter, NextFunction, Request, Response, static as expressStatic } from "express";
 import * as swaggerUi from "swagger-ui-express";
 import compression, { CompressionOptions } from "compression";
 
@@ -78,7 +78,62 @@ export class Convenience {
      * @param compressionOptions The options to use for the compression middleware.
      * @returns {ApplicationBuilderMiddleware} A new instance of the compression middleware.
      */
-    public compressionMiddleware(compressionOptions?: CompressionOptions) {
-        return this.customConstructor.createInstanceWithoutConstructor(compression, [compressionOptions]);
+    public compressionMiddleware(compressionOptions?: CompressionOptions): ApplicationBuilderMiddleware {
+        return this.customConstructor.createInstanceWithoutConstructor<ApplicationBuilderMiddleware>((options) => compression(options) as ApplicationBuilderMiddleware, [compressionOptions]);
     }
+
+    /**
+     * Creates a new instance of the static file serving middleware.
+     * @param staticPath The path to the static files to serve.
+     * @returns {ApplicationBuilderMiddleware} A new instance of the static file serving middleware.
+     */
+    public staticMiddleware(staticPath: string): ApplicationBuilderMiddleware {
+        return this.customConstructor.createInstanceWithoutConstructor<ApplicationBuilderMiddleware>(expressStatic, [staticPath]);
+    }
+
+    /**
+     * Encodes a string payload into a ReadableStream.
+     * @param payload The string payload to encode.
+     * @returns An object containing the ReadableStream and the size of the encoded payload.
+     */
+    public encodeBodyStream(payload: string): { stream: ReadableStream, size: number } {
+        const encoder = new TextEncoder();
+        const encodedPayload = encoder.encode(payload);
+        return {
+            stream: new ReadableStream({
+                start(controller) {
+                    controller.enqueue(encodedPayload);
+                    controller.close();
+                }
+            }),
+            size: encodedPayload.length
+        };
+    }
+
+    /**
+     *  Sends an HTTP request with GZIP compression if specified.
+     * @param httpVerb "GET", "POST", "PUT", "DELETE", etc.
+     * @param url The URL to send the request to.
+     * @param headers The headers to include in the request.
+     * @param bodyStream The body stream to send with the request, Default undefined.
+     * @param shouldCompress Whether to compress the request body using GZIP. Default is true when body is present.
+     * @returns A promise that resolves to the response of the HTTP request.
+     */
+    public async compressibleRequestGZIP(httpVerb: string, url: URL, headers: Record<string, string>, bodyStream: ReadableStream | undefined = undefined, shouldCompress = bodyStream !== undefined, context = globalThis): Promise<globalThis.Response> {
+
+        const fetchOptions: RequestInit = {
+            method: httpVerb,
+            headers: headers,
+            body: bodyStream
+        };
+        (fetchOptions as any).duplex = "half";//For some odd reason TypesDef RequestInit type does not include duplex yet.
+
+        if (shouldCompress === true && bodyStream !== undefined) {
+            headers["content-encoding"] = "gzip";
+            fetchOptions.body = bodyStream.pipeThrough(new context.CompressionStream("gzip"))
+        }
+
+        return context.fetch(url, fetchOptions);
+    }
+
 }

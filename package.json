@@ -1,6 +1,6 @@
 {
   "name": "express-service-bootstrap",
-  "version": "0.16.0",
+  "version": "0.18.0",
   "description": "This is a convenience package for starting a express API with security, health checks, process exits etc.",
   "main": "dist/src/index.js",
   "directories": {
@@ -12,7 +12,7 @@
     "clean-build": "rimraf ./dist && tsc",
     "copy-files": "npx copyfiles ./package.json ./dist/",
     "build": "npm run clean-build && npm run copy-files",
-    "test": "npm run build && nyc --all --reporter=lcov --reporter=text --exclude=src/index.ts --exclude=test/** --exclude=examples/** --exclude=coverage/** node --test ./dist/test/**/*.js"
+    "test": "npm run build && nyc --all --reporter=lcov --reporter=html --exclude=src/index.ts --exclude=test/** --exclude=examples/** --exclude=coverage/** node --test ./dist/test/**/*.js"
   },
   "keywords": [
     "express",
