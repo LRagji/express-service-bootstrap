@@ -147,22 +147,33 @@ describe('Convenience', () => {
 
         it('Component Test: for compressibleRequestGZIP with encodeBodyStream with an actual ECHO API when compression is enabled.', async () => {
 
-            const payload = 'The quick brown fox jumps over the lazy dog. こんにちは世界🌏';
-            const { stream: bodyStream, size } = convenience.encodeBodyStream(payload);
+            const previousTlsRejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+            process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-            const url = new URL('https://postman-echo.com/post');
-            const headers: Record<string, string> = {
-                "Content-Type": "text/plain",
-                "Accept": "application/json",
-                "Accept-Encoding": "gzip"
-            };
+            try {
+                const payload = 'The quick brown fox jumps over the lazy dog. こんにちは世界🌏';
+                const { stream: bodyStream, size } = convenience.encodeBodyStream(payload);
 
-            const response = await convenience.compressibleRequestGZIP('POST', url, headers, bodyStream, true);
+                const url = new URL('https://postman-echo.com/post');
+                const headers: Record<string, string> = {
+                    "Content-Type": "text/plain",
+                    "Accept": "application/json",
+                    "Accept-Encoding": "gzip"
+                };
 
-            assert.strictEqual(response.status, 200);
-            const responseBody = await response.json();
-            const echoedData: string = responseBody.data;
-            assert.strictEqual(echoedData, payload);
+                const response = await convenience.compressibleRequestGZIP('POST', url, headers, bodyStream, true);
+
+                assert.strictEqual(response.status, 200);
+                const responseBody = await response.json();
+                const echoedData: string = responseBody.data;
+                assert.strictEqual(echoedData, payload);
+            } finally {
+                if (previousTlsRejectUnauthorized === undefined) {
+                    delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+                } else {
+                    process.env.NODE_TLS_REJECT_UNAUTHORIZED = previousTlsRejectUnauthorized;
+                }
+            }
         });
 
         // New tests for other methods should be reviewed as well
