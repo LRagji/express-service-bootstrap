@@ -120,3 +120,9 @@ app.overrideStartupHandler(AppStartUp)
 ## License
 
 This project is contribution to public domain and completely free for use, view [LICENSE.md](/license.md) file for details.
+
+## Change Tracking
+
+| Version | Changes |
+|---------|---------|
+| 1.0.0 | Started using express internal parser for json and url encoding |
