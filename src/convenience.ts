@@ -2,7 +2,7 @@ import bodyParser from "body-parser";
 import { BootstrapConstructor } from "./bootstrap-constructor";
 import { ApplicationBuilderMiddleware } from "./application-builder";
 import helmet, { HelmetOptions } from "helmet";
-import { Router, IRouter, NextFunction, Request, Response, static as expressStatic } from "express";
+import express, { Router, IRouter, NextFunction, Request, Response, static as expressStatic } from "express";
 import * as swaggerUi from "swagger-ui-express";
 import compression, { CompressionOptions } from "compression";
 
@@ -23,19 +23,25 @@ export class Convenience {
     /**
      * Creates a new instance of the body parser middleware for url encoding.
      * @param urlEncodingOptions  The options to use for the url encoding middleware.
+     * @param urlEncodingOptions.extended  Whether to use the extended query string parsing. Default is true.
+     * @param urlEncodingOptions.limit The maximum size of the url encoded payload to parse. Can be a string (e.g., "1mb") or a number (in bytes). Default is '100kb'.
+     * @param urlEncodingOptions.parameterLimit The maximum number of parameters to parse in the url encoded payload. Default is 1000.
      * @returns {ApplicationBuilderMiddleware} A new instance of the body parser middleware for url encoding.
      */
-    public bodyParserURLEncodingMiddleware(urlEncodingOptions: bodyParser.OptionsUrlencoded = { extended: true }) {
-        return this.customConstructor.createInstanceWithoutConstructor<ApplicationBuilderMiddleware>(bodyParser.urlencoded, [urlEncodingOptions]);
+    public bodyParserURLEncodingMiddleware(urlEncodingOptions: { extended?: boolean; limit?: string | number; parameterLimit?: number } = { extended: true }) {
+        return this.customConstructor.createInstanceWithoutConstructor<ApplicationBuilderMiddleware>(express.urlencoded, [urlEncodingOptions]);
     }
 
     /**
      * Creates a new instance of the body parser middleware for JSON encoding. 
      * @param jsonOptions  The options to use for the JSON encoding middleware.
+     * @param jsonOptions.limit The maximum size of the JSON payload to parse. Can be a string (e.g., "1mb") or a number (in bytes). Default is '1mb'.
+     * @param jsonOptions.strict If true, only objects and arrays will be parsed. Default is true.
+     * @param jsonOptions.type The media type(s) to parse. Can be a string, an array of strings, or a function that returns a boolean. Default is 'application/json'.
      * @returns  {ApplicationBuilderMiddleware} A new instance of the body parser middleware for JSON encoding.
      */
-    public bodyParserJSONEncodingMiddleware(jsonOptions: bodyParser.OptionsJson = { limit: '1mb' }) {
-        return this.customConstructor.createInstanceWithoutConstructor<ApplicationBuilderMiddleware>(bodyParser.json, [jsonOptions]);
+    public bodyParserJSONEncodingMiddleware(jsonOptions: { limit?: string | number; strict?: boolean; type?: string | string[] | ((req: any) => boolean) } = { limit: '1mb' }) {
+        return this.customConstructor.createInstanceWithoutConstructor<ApplicationBuilderMiddleware>(express.json, [jsonOptions]);
     }
 
     /**
