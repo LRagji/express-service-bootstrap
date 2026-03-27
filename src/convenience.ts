@@ -98,6 +98,23 @@ export class Convenience {
     }
 
     /**
+     * Creates a middleware that sets the extended query parser on the Express app.
+     * @param enableExtendedQueryParser Whether to enable the extended query parser for bracket-style query parameters. Default is false.
+     * @returns {ApplicationBuilderMiddleware} A middleware function that sets the query parser when enabled.
+     */
+    public extendedQueryParserMiddleware(enableExtendedQueryParser: boolean = false): ApplicationBuilderMiddleware {
+        return this.customConstructor.createInstanceWithoutConstructor<ApplicationBuilderMiddleware>(
+            (enableExtended: boolean) => (req: Request, res: Response, next: NextFunction) => {
+                if (enableExtended) {
+                    req.app.set('query parser', 'extended');
+                }
+                next();
+            },
+            [enableExtendedQueryParser]
+        );
+    }
+
+    /**
      * Encodes a string payload into a ReadableStream.
      * @param payload The string payload to encode.
      * @returns An object containing the ReadableStream and the size of the encoded payload.

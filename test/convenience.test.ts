@@ -247,6 +247,63 @@ describe('Convenience', () => {
             );
         });
 
+        it('extendedQueryParserMiddleware should set query parser to extended when enabled', () => {
+            let middlewareFn: any;
+            (customConstructor.createInstanceWithoutConstructor as Sinon.SinonStub).callsFake((fn: any, args: any[]) => {
+                middlewareFn = fn(...args);
+                return middlewareFn;
+            });
+
+            const middleware = convenience.extendedQueryParserMiddleware(true);
+            const setStub = Sinon.stub();
+            const req: any = { app: { set: setStub } };
+            const res: any = {};
+            const next = Sinon.stub();
+
+            middleware(req, res, next);
+
+            assert(setStub.calledOnceWithExactly('query parser', 'extended'));
+            assert(next.calledOnce);
+        });
+
+        it('extendedQueryParserMiddleware should not set query parser when explicitly disabled', () => {
+            let middlewareFn: any;
+            (customConstructor.createInstanceWithoutConstructor as Sinon.SinonStub).callsFake((fn: any, args: any[]) => {
+                middlewareFn = fn(...args);
+                return middlewareFn;
+            });
+
+            const middleware = convenience.extendedQueryParserMiddleware(false);
+            const setStub = Sinon.stub();
+            const req: any = { app: { set: setStub } };
+            const res: any = {};
+            const next = Sinon.stub();
+
+            middleware(req, res, next);
+
+            assert(setStub.notCalled);
+            assert(next.calledOnce);
+        });
+
+        it('extendedQueryParserMiddleware should default to disabled when no argument is provided', () => {
+            let middlewareFn: any;
+            (customConstructor.createInstanceWithoutConstructor as Sinon.SinonStub).callsFake((fn: any, args: any[]) => {
+                middlewareFn = fn(...args);
+                return middlewareFn;
+            });
+
+            const middleware = convenience.extendedQueryParserMiddleware();
+            const setStub = Sinon.stub();
+            const req: any = { app: { set: setStub } };
+            const res: any = {};
+            const next = Sinon.stub();
+
+            middleware(req, res, next);
+
+            assert(setStub.notCalled);
+            assert(next.calledOnce);
+        });
+
         it('should call createInstanceWithoutConstructor with a middleware function for injectInRequestMiddleware', () => {
             const stub = customConstructor.createInstanceWithoutConstructor as Sinon.SinonStub;
             convenience.injectInRequestMiddleware('foo', 123);
