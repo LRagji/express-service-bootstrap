@@ -9,6 +9,8 @@ import { SortedMap } from "node-apparatus";
 
 export type ApplicationBuilderMiddleware = (request: Request, response: Response, next: NextFunction) => Promise<void> | void;
 
+export type ApplicationBuilderErrorHandler = (error: unknown, request: Request, response: Response, next: NextFunction) => Promise<void> | void;
+
 export type HostingPath = string | "*";
 
 export enum ApplicationTypes {
@@ -40,6 +42,8 @@ export class ApplicationBuilder {
     private healthHandlers = new SortedMap<ApplicationBuilderMiddleware | IRouter | SortedMap<ApplicationBuilderMiddleware>>();
     private catchAllErrorResponseTransformer: (request: Request, error: unknown) => unknown;
     private readonly exitHandler = this[Symbol.asyncDispose].bind(this);
+    private errorHandler: ApplicationBuilderErrorHandler = this.defaultErrorHandler.bind(this);
+
 
     /**
      * Creates an instance of ApplicationBuilder.
@@ -143,6 +147,15 @@ export class ApplicationBuilder {
         this.catchAllErrorResponseTransformer = transformer;
         return this;
     }
+    /**
+     * Used to override the catch-all error handler.
+     * @param handler Handler to be invoked when an unhandled error occurs.
+     * @returns {ApplicationBuilder} ApplicationBuilder instance.
+     */
+    public overrideCatchAllErrorHandler(handler: ApplicationBuilderErrorHandler): ApplicationBuilder {
+        this.errorHandler = handler;
+        return this;
+    }
 
     /**
     * Used to register a SYNC/ASYNC middleware.
@@ -233,7 +246,7 @@ export class ApplicationBuilder {
                         applicationExpressInstance.use(path, handler as ApplicationBuilderMiddleware | IRouter);
                     }
                 }
-                applicationExpressInstance.use(this.errorHandler.bind(this));
+                applicationExpressInstance.use(this.errorHandler);
                 const server = applicationExpressInstance.listen(this.applicationPort, () => { a(server) });
             }
             catch (e) {
@@ -335,7 +348,7 @@ export class ApplicationBuilder {
         };
     }
 
-    private errorHandler(err: any, req: Request, res: Response, next: NextFunction) {
+    private defaultErrorHandler(err: any, req: Request, res: Response, next: NextFunction) {
         if (res.headersSent) {
             return next(err);
         }
